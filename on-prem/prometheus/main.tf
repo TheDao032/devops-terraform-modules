@@ -15,12 +15,9 @@ resource "helm_release" "main" {
       templatefile(
         local.value_file,
         {
-          alertmanager_host   = var.alertmanager_inrgess.host,
-          alertmanager_prefix = var.alertmanager_inrgess.prefix,
-          prometheus_host     = var.prometheus_inrgess.host,
-          prometheus_prefix   = var.prometheus_inrgess.prefix,
-          grafana_host        = var.grafana_inrgess.host,
-          grafana_prefix      = var.grafana_inrgess.prefix
+          alertmanager   = var.alertmanager_ingress,
+          prometheus     = var.prometheus_ingress,
+          grafana        = var.grafana_ingress,
         },
       )
   ] : null)

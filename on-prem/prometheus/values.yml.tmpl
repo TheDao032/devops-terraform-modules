@@ -8,9 +8,9 @@ alertmanager:
       traefik.ingress.kubernetes.io/router.entrypoints: "web"
 
     hosts:
-      - {{ alertmanager_host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
-    path: {{ alertmanager_prefix }}
-    pathType: Prefix
+      - {{ alertmanager.host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
+    path: {{ alertmanager.prefix }}
+    pathType: {{ alertmanager.prefix_type }}
 
 grafana:
   ingress:
@@ -22,9 +22,9 @@ grafana:
       traefik.ingress.kubernetes.io/router.entrypoints: "web"
 
     hosts:
-      - {{ grafana_host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
-    path: {{ grafana_prefix }}
-    pathType: Prefix
+      - {{ grafana.host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
+    path: {{ grafana.prefix }}
+    pathType: {{ grafana.prefix_type }}
     # tls: []  # Empty TLS means no HTTPS; if you want HTTPS, configure a self-signed certificate or another method
 
 prometheus:
@@ -37,6 +37,6 @@ prometheus:
       traefik.ingress.kubernetes.io/router.entrypoints: "web"
 
     hosts:
-      - {{ prometheus_host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
-    path: {{ prometheus_prefix }}
-    pathType: Prefix
+      - {{ grafana.host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
+    path: {{ grafana.prefix }}
+    pathType: {{ grafana.prefix_type }}
