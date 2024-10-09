@@ -1,0 +1,42 @@
+alertmanager:
+  ingress:
+    enabled: true
+    ingressClassName: traefik  # Use traefik as the ingress controller
+
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+
+    hosts:
+      - {{ alertmanager_host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
+    path: {{ alertmanager_prefix }}
+    pathType: Prefix
+
+grafana:
+  ingress:
+    enabled: true
+    ingressClassName: traefik  # Use traefik as the ingress controller
+
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+
+    hosts:
+      - {{ grafana_host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
+    path: {{ grafana_prefix }}
+    pathType: Prefix
+    # tls: []  # Empty TLS means no HTTPS; if you want HTTPS, configure a self-signed certificate or another method
+
+prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: traefik  # Use traefik as the ingress controller
+
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+
+    hosts:
+      - {{ prometheus_host }}  # Use a local DNS name; we will configure the /etc/hosts to map this
+    path: {{ prometheus_prefix }}
+    pathType: Prefix
