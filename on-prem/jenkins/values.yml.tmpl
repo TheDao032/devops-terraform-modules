@@ -5,6 +5,14 @@ controller:
   image:
     tag: ${jenkins_version}
 
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+    hostName: ${jenkins_url}
+
   jenkinsUrl: ${jenkins_url}
   JCasC:
     securityRealm: |-
@@ -26,4 +34,4 @@ controller:
 
 persistence:
   storageClass: ${storage_class_name}
-  size: "10Gi"
+  size: "100Gi"
