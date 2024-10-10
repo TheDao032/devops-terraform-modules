@@ -1,0 +1,42 @@
+global:
+  storageClass: "local-path"
+
+image:
+  registry: "docker.io"
+  repository: "bitnami/kafka"
+  tag: "3.8.0-debian-12-r5"
+
+heapOpts: -Xmx512m -Xms2048m
+
+controller:
+  replicaCount: 1
+  heapOpts: -Xmx512m -Xms2048m
+  persistence:
+    enabled: true
+    storageClass: local-path
+    mountPath: /bitnami/kafka/controller
+  autoscaling:
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+
+broker:
+  replicaCount: 2
+  heapOpts: -Xmx512m -Xms2048m
+  persistence:
+    enabled: true
+    storageClass: local-path
+    mountPath: /bitnami/kafka/broker
+  autoscaling:
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 3
+
+metrics:
+  jmx:
+    enabled: true
+
+zookeeper:
+  enabled: false
