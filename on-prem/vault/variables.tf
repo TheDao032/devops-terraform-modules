@@ -2,20 +2,43 @@ variable "chart_version" {
   type    = string
 }
 
-variable "prometheus_ingress" {
-  description = "Prometheus Ingress Data"
+variable "namespace" {
+  type    = string
+  default = "monitoring"
+}
+
+variable "server_conf" {
+  description = "Server Conf Data"
   type        = map(any)
   default     = {}
 }
 
-variable "alertmanager_ingress" {
-  description = "Alertmanager Ingress Data"
+variable "ui_conf" {
+  description = "Vault UI Conf Data"
   type        = map(any)
   default     = {}
 }
 
-variable "grafana_ingress" {
-  description = "Grafana Ingress Data"
-  type        = map(any)
-  default     = {}
+variable "helm_release_name" {
+  description = "Kafka's helm release name"
+  type    = string
+  default = "hashicorp"
+}
+
+variable "helm_release_chart" {
+  description = "Kafka's helm release chart name"
+  type    = string
+  default = "vault"
+}
+
+variable "helm_repository" {
+  description = "Repository of Kafka"
+  type    = string
+  default = "https://helm.releases.hashicorp.com"
+}
+
+variable "vault_hosts" {
+  description = "Repository of Kafka"
+  type    = list(map(any))
+  default = []
 }

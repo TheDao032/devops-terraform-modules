@@ -3,11 +3,11 @@ locals {
 }
 
 resource "helm_release" "main" {
-  name             = "prometheus-community"
-  namespace        = "monitoring"
-  repository       = "https://prometheus-community.github.io/helm-charts"
+  name             = var.helm_release_name
+  namespace        = var.namespace
+  repository       = var.helm_repository
   version          = var.chart_version
-  chart            = "kube-prometheus-stack"
+  chart            = var.helm_release_chart
   create_namespace = true
   upgrade_install  = true
   values = (fileexists(local.value_file) ?

@@ -1,0 +1,38 @@
+global:
+  enabled: true
+  tlsDisable: true
+
+server:
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+    ingressClassName: "traefik"
+    hosts:
+      %{ for item in vault_hosts ~}
+      - host: ${item.host}
+        paths:
+          %{ for path in item.paths ~}
+          - ${path}
+          %{ endfor ~}
+      %{ endfor ~}
+
+  resources:
+    requests:
+      memory: ${server_conf.resources.rq_mem}
+      cpu: ${server_conf.resources.rq_cpu}
+    limits:
+      memory: ${server_conf.resources.limits_mem}
+      cpu: ${server_conf.resources.limits_cpu}
+
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+
+  dataStorage:
+    size: ${server_conf.datastore.size}
+    mountPath: ${server_conf.datastore.mount_path}
+    storrageClass: ${storage_class_name}
+ui:
+  enabled: ${ui_conf.enabled}
