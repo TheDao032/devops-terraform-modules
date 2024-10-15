@@ -25,13 +25,13 @@ variable "helm_repository" {
 variable "helm_release_name" {
   description = "Jenkins's helm release name"
   type    = string
-  default = "bitnami"
+  default = "jenkins"
 }
 
 variable "helm_release_chart" {
   description = "Jenkins's helm release chart name"
   type    = string
-  default = "kafka"
+  default = "jenkins"
 }
 
 variable "parameters" {

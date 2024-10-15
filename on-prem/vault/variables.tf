@@ -1,10 +1,13 @@
 variable "chart_version" {
+  description = "Helm chart version"
   type    = string
+  default = "0.28.1"
 }
 
 variable "namespace" {
+  description = "Vault namespace"
   type    = string
-  default = "monitoring"
+  default = "default"
 }
 
 variable "server_conf" {
@@ -20,25 +23,25 @@ variable "ui_conf" {
 }
 
 variable "helm_release_name" {
-  description = "Kafka's helm release name"
+  description = "Vault's helm release name"
   type    = string
   default = "hashicorp"
 }
 
 variable "helm_release_chart" {
-  description = "Kafka's helm release chart name"
+  description = "Vault's helm release chart name"
   type    = string
   default = "vault"
 }
 
 variable "helm_repository" {
-  description = "Repository of Kafka"
+  description = "Repository of Vault"
   type    = string
   default = "https://helm.releases.hashicorp.com"
 }
 
 variable "vault_hosts" {
-  description = "Repository of Kafka"
+  description = "Repository of Vault"
   type    = list(map(any))
   default = []
 }
