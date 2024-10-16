@@ -11,11 +11,11 @@ server:
     ingressClassName: "traefik"
     hosts:
       %{ for item in vault_hosts ~}
-      - host: ${item.host}
+- host: ${item.host}
         paths:
-          %{ for path in item.paths ~}
-          - ${path}
-          %{ endfor ~}
+        %{ for path in item.paths ~}
+  - ${path}
+        %{ endfor ~}
       %{ endfor ~}
 
   resources:

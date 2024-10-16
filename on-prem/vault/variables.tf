@@ -42,6 +42,11 @@ variable "helm_repository" {
 
 variable "vault_hosts" {
   description = "Repository of Vault"
-  type    = list(map(any))
-  default = []
+  type    = list(any)
+  default = [
+    {
+      host = "traefik.vault.local.com"
+      paths = []
+    }
+  ]
 }
