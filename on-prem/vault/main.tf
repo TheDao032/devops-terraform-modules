@@ -24,10 +24,16 @@ resource "helm_release" "main" {
       templatefile(
         local.value_file,
         {
-          storage_class_name: local.storage_class_name,
-          vault_hosts: var.vault_hosts,
-          server_conf: var.server_conf,
-          ui_conf: var.ui_conf,
+          storage_class_name: local.storage_class_name
+          vault_hosts: var.vault_hosts
+          server_conf: var.server_conf
+          injector_conf: var.injector_conf
+          ui_conf: var.ui_conf
+          vault_tls_server_name: var.vault_tls_server_name
+          vault_tls_ca_name: var.vault_tls_ca_name
+          vault_server_url: var.vault_server_url
+          vault_server_token: var.vault_server_token
+          consul_server_url: var.consul_server_url
         }
       )
   ] : null)

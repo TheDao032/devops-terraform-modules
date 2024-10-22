@@ -1,0 +1,23 @@
+global:
+  name: consul
+  datacenter: vault-dc
+
+ui:
+  enabled: true
+
+server:
+  enabled: true
+  replicas: 1
+  bootstrapExpect: 1
+  disruptionBudget:
+    maxUnavailable: 0
+  exposeService:
+    enabled: true
+
+  resources:
+  requests:
+    memory: ${server_conf.resources.rq_mem}
+    cpu: ${server_conf.resources.rq_cpu}
+  limits:
+    memory: ${server_conf.resources.limits_mem}
+    cpu: ${server_conf.resources.limits_cpu}

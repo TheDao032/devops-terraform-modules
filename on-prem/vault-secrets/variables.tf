@@ -16,12 +16,6 @@ variable "server_conf" {
   default     = {}
 }
 
-variable "injector_conf" {
-  description = "Server Conf Data"
-  type        = map(any)
-  default     = {}
-}
-
 variable "ui_conf" {
   description = "Vault UI Conf Data"
   type        = map(any)
@@ -55,33 +49,4 @@ variable "vault_hosts" {
       paths = []
     }
   ]
-}
-
-variable "vault_tls_ca_name" {
-  description = "Vault certificate authority's name"
-  type    = string
-  default = "vault-tls-ca"
-}
-
-variable "vault_tls_server_name" {
-  description = "Vault certificate authority's name"
-  type    = string
-  default = "vault-tls-server"
-}
-
-variable "vault_server_url" {
-  description = "Vault server url"
-  type    = string
-  default = "https://192.168.56.11:8200"
-}
-
-variable "vault_server_token" {
-  description = "Vault server token"
-  type    = string
-}
-
-variable "consul_server_url" {
-  description = "Consul server url"
-  type    = string
-  default = "consul-server:8500"
 }
