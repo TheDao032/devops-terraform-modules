@@ -6,37 +6,40 @@ image:
   repository: "bitnami/kafka"
   tag: ${kafka_version}
 
-heapOpts: -Xmx512m -Xms2048m
+heapOpts: -XX:InitialRAMPercentage=75 -XX:MaxRAMPercentage=75
 
 controller:
-  replicaCount: ${controller.replica_count}
-  heapOpts: -Xmx512m -Xms2048m
+  replicaCount: ${controller_conf.replica_count}
+  heapOpts: -Xmx1024m -Xms1024m
   persistence:
     enabled: true
     storageClass: ${storage_class_name}
-    mountPath: ${controller.mount_path}
+    mountPath: ${controller_conf.mount_path}
   autoscaling:
     hpa:
-      enabled: ${controller.hpa_active}
-      minReplicas: ${controller.min_replicas}
-      maxReplicas: ${controller.max_replicas}
+      enabled: ${controller_conf.hpa_active}
+      minReplicas: ${controller_conf.min_replicas}
+      maxReplicas: ${controller_conf.max_replicas}
 
 broker:
-  replicaCount: ${broker.replica_count}
-  heapOpts: -Xmx512m -Xms2048m
+  replicaCount: ${broker_conf.replica_count}
+  heapOpts: -Xmx1024m -Xms1024m
   persistence:
     enabled: true
     storageClass: ${storage_class_name}
-    mountPath: ${broker.mount_path}
+    mountPath: ${broker_conf.mount_path}
   autoscaling:
     hpa:
-      enabled: ${broker.hpa_active}
-      minReplicas: ${broker.min_replicas}
-      maxReplicas: ${broker.max_replicas}
+      enabled: ${broker_conf.hpa_active}
+      minReplicas: ${broker_conf.min_replicas}
+      maxReplicas: ${broker_conf.max_replicas}
 
 metrics:
   jmx:
     enabled: true
+
+kraft:
+  enabled: true
 
 zookeeper:
   enabled: false

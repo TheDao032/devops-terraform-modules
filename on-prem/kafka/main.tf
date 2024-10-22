@@ -1,6 +1,7 @@
 locals {
-  storage_class_name = "kafka-sc"
   value_file         = "${path.module}/values.yml.tmpl"
+  sc_value_file      = "${path.module}/sc.yml.tmpl"
+  storage_class_name = "kafka-sc"
 }
 
 resource "kubectl_manifest" "storage_class" {
@@ -22,14 +23,12 @@ resource "helm_release" "main" {
     [
       templatefile(
         local.value_file,
-        merge(
-          {
-            kafka_version         = var.image_tag
-            storage_class_name    = local.storage_class_name,
-          },
-          var.controller_conf,
-          var.broker_conf
-        )
+        {
+          kafka_version         = var.image_tag
+          storage_class_name    = local.storage_class_name
+          controller_conf       = var.controller_conf
+          broker_conf           = var.broker_conf
+        }
       )
   ] : null)
 
