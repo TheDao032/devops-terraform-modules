@@ -1,3 +1,7 @@
+variable "environment" {
+  type = string
+}
+
 variable "chart_version" {
   description = "Helm Chart Version"
   type    = string
@@ -44,4 +48,10 @@ variable "jenkins_plugins" {
   description = "Plugins list for Jenkins values"
   type = map(any)
   default = {}
+}
+
+variable "secrets" {
+  description = "Parameters list for Jenkins values"
+  type        = map(any)
+  default     = {}
 }

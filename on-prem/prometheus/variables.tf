@@ -25,19 +25,19 @@ variable "helm_repository" {
   default = "https://prometheus-community.github.io/helm-charts"
 }
 
-variable "prometheus_ingress" {
+variable "prometheus" {
   description = "Prometheus Ingress Data"
   type        = map(any)
   default     = {}
 }
 
-variable "alertmanager_ingress" {
+variable "alertmanager" {
   description = "Alertmanager Ingress Data"
   type        = map(any)
   default     = {}
 }
 
-variable "grafana_ingress" {
+variable "grafana" {
   description = "Grafana Ingress Data"
   type        = map(any)
   default     = {}

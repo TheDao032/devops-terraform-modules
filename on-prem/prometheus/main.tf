@@ -15,9 +15,9 @@ resource "helm_release" "main" {
       templatefile(
         local.value_file,
         {
-          alertmanager   = var.alertmanager_ingress,
-          prometheus     = var.prometheus_ingress,
-          grafana        = var.grafana_ingress,
+          alertmanager   = var.alertmanager,
+          prometheus     = var.prometheus,
+          grafana        = var.grafana,
         },
       )
   ] : null)
