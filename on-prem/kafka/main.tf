@@ -28,6 +28,7 @@ resource "helm_release" "main" {
           storage_class_name    = local.storage_class_name
           controller_conf       = var.controller_conf
           broker_conf           = var.broker_conf
+          sasl_conf             = var.sasl_conf
         }
       )
   ] : null)

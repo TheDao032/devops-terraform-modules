@@ -8,6 +8,12 @@ image:
 
 heapOpts: -XX:InitialRAMPercentage=75 -XX:MaxRAMPercentage=75
 
+sasl:
+  client:
+    users:
+      - admin
+    passwords: ${sasl_conf.client.password}
+
 controller:
   replicaCount: ${controller_conf.replica_count}
   heapOpts: -Xmx1024m -Xms1024m

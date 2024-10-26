@@ -45,3 +45,9 @@ variable "broker_conf" {
   type        = map(any)
   default     = {}
 }
+
+variable "sasl_conf" {
+  description = "Broker Conf Data"
+  type        = map(any)
+  default     = {}
+}
