@@ -16,7 +16,7 @@ resource "random_password" "secrets" {
 }
 
 resource "vault_mount" "kv" {
-  path        = "${var.kv_secret_path}_${var.environment}_terrafrom"
+  path        = "${var.kv_secret_path}_${var.environment}_terraform"
   type        = "kv"
   options     = {
     version = "2"
