@@ -50,12 +50,13 @@ resource "vault_generic_secret" "k3s_vms" {
   path = "${vault_mount.kv.path}/k3s/vms"
 
   data_json = jsonencode(
-    {
-      "server-1" = "${var.k3s_vms.server_1}",
-      "server-2" = "${var.k3s_vms.server_2}",
-      "agent-1"  = "${var.k3s_vms.agent_1}",
-      "agent-2"  = "${var.k3s_vms.agent_2}",
-    }
+    var.k3s_vms
+    # {
+    #   "server-1" = "${var.k3s_vms.server_1}",
+    #   "server-2" = "${var.k3s_vms.server_2}",
+    #   "agent-1"  = "${var.k3s_vms.agent_1}",
+    #   "agent-2"  = "${var.k3s_vms.agent_2}",
+    # }
   )
 }
 
@@ -63,17 +64,17 @@ resource "vault_generic_secret" "k3s_envs" {
   path = "${vault_mount.kv.path}/k3s/envs"
 
   data_json = jsonencode(
-    {
-      "keepalived_virtual_ip" = var.k3s_envs.keepalived_virtual_ip,
-      "load_balancer_port": var.k3s_envs.load_balancer_port,
-      "psql_version": var.k3s_envs.psql_version,
-      "k3s_server_cidr_range": var.k3s_envs.k3s_server_cidr_range,
-      "k3s_version": var.k3s_envs.k3s_version,
-      "api_endpoint": var.k3s_envs.api_endpoint,
-      "extra_server_args": "",
-      "extra_agent_args": "",
-
-    }
+    var.k3s_envs
+    # {
+    #   "keepalived_virtual_ip" = var.k3s_envs.keepalived_virtual_ip,
+    #   "load_balancer_port": var.k3s_envs.load_balancer_port,
+    #   "psql_version": var.k3s_envs.psql_version,
+    #   "k3s_server_cidr_range": var.k3s_envs.k3s_server_cidr_range,
+    #   "k3s_version": var.k3s_envs.k3s_version,
+    #   "api_endpoint": var.k3s_envs.api_endpoint,
+    #   "extra_server_args": "",
+    #   "extra_agent_args": "",
+    # }
   )
 }
 
