@@ -16,7 +16,6 @@ sasl:
 
 controller:
   replicaCount: ${controller_conf.replica_count}
-  automountServiceAccountToken: true
   controllerOnly: false
   heapOpts: -Xmx1024m -Xms1024m
   persistence:
@@ -31,7 +30,6 @@ controller:
 
 broker:
   replicaCount: ${broker_conf.replica_count}
-  automountServiceAccountToken: true
   heapOpts: -Xmx1024m -Xms1024m
   persistence:
     enabled: true
@@ -42,19 +40,6 @@ broker:
       enabled: ${broker_conf.hpa_active}
       minReplicas: ${broker_conf.min_replicas}
       maxReplicas: ${broker_conf.max_replicas}
-
-## externalAccess:
-##   enabled: true
-##   broker:
-##     service:
-##       loadBalancerClass: traefik
-##       type: LoadBalancer
-##   controller:
-##     service:
-##       loadBalancerClass: traefik
-##       type: LoadBalancer
-##   autoDiscovery:
-##     enabled: true
 
 serviceAccount:
   create: true

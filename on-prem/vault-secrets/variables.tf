@@ -2,12 +2,6 @@ variable "environment" {
   type = string
 }
 
-variable "kv_secret_path" {
-  description = "KV secret path"
-  type    = string
-  default = "kv"
-}
-
 variable "namespace" {
   description = "Vault namespace"
   type    = string
@@ -19,26 +13,62 @@ variable "secrets" {
   default = {}
 }
 
-variable "k3s_vms" {
+variable "k3s_params" {
   type    = map(any)
   default = {}
 }
 
-variable "k3s_envs" {
+variable "k3s_params_path" {
+  description = "k3s env path"
+  type    = string
+  default = "k3s/params"
+}
+
+variable "k3s_secrets_path" {
+  description = "k3s secrets path"
+  type    = string
+  default = "k3s/creds"
+}
+
+variable "jenkins_crds_path" {
+  description = "jenkins secrets path"
+  type    = string
+  default = "jenkins/creds"
+}
+
+variable "grafana_crds_path" {
+  description = "grafana secrets path"
+  type    = string
+  default = "grafana/creds"
+}
+
+variable "kafka_crds_path" {
+  description = "kafka secrets path"
+  type    = string
+  default = "kafka/creds"
+}
+
+variable "vault_params" {
   type    = map(any)
   default = {}
 }
 
-variable "psql_vms" {
+variable "vault_secrets" {
   type    = map(any)
   default = {}
 }
 
-variable "vault_vms" {
-  type    = map(any)
-  default = {}
+variable "vault_params_path" {
+  description = "k3s env path"
+  type    = string
+  default = "vault/params"
 }
 
+variable "vault_secrets_path" {
+  description = "k3s secrets path"
+  type    = string
+  default = "vault/creds"
+}
 variable "tags" {
   type    = map(any)
   default = {}

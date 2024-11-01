@@ -16,7 +16,7 @@ resource "random_password" "secrets" {
 }
 
 resource "vault_mount" "kv" {
-  path        = "${var.kv_secret_path}_${var.environment}_terraform"
+  path        = var.environment
   type        = "kv"
   options     = {
     version = "2"
@@ -25,56 +25,43 @@ resource "vault_mount" "kv" {
 }
 
 resource "vault_generic_secret" "jenkins_secrets" {
-  path = "${vault_mount.kv.path}/jenkins"
+  path = "${vault_mount.kv.path}/${var.jenkins_crds_path}"
 
   data_json = jsonencode(
     {
-      "jenkins_username" = "${local.secrets.jenkinsUsername}",
-      "jenkins_password" = "${local.secrets.jenkinsPassword}",
+      "username" = "${local.secrets.jenkinsUsername}",
+      "password" = "${local.secrets.jenkinsPassword}",
     }
   )
 }
 
 resource "vault_generic_secret" "grafana_secrets" {
-  path = "${vault_mount.kv.path}/grafana"
+  path = "${vault_mount.kv.path}/${var.grafana_crds_path}"
 
   data_json = jsonencode(
     {
-      "grafana_username" = "${local.secrets.grafanaUsername}",
-      "grafana_password" = "${local.secrets.grafanaPassword}",
+      "username" = "${local.secrets.grafanaUsername}",
+      "password" = "${local.secrets.grafanaPassword}",
     }
   )
 }
 
-resource "vault_generic_secret" "k3s_vms" {
-  path = "${vault_mount.kv.path}/k3s/vms"
+resource "vault_generic_secret" "kafka_secrets" {
+  path = "${vault_mount.kv.path}/${var.kafka_crds_path}"
 
   data_json = jsonencode(
-    var.k3s_vms
-    # {
-    #   "server-1" = "${var.k3s_vms.server_1}",
-    #   "server-2" = "${var.k3s_vms.server_2}",
-    #   "agent-1"  = "${var.k3s_vms.agent_1}",
-    #   "agent-2"  = "${var.k3s_vms.agent_2}",
-    # }
+    {
+      "username" = "${local.secrets.kafkaClientUsername}",
+      "password" = "${local.secrets.kafkaClientPassword}",
+    }
   )
 }
 
-resource "vault_generic_secret" "k3s_envs" {
-  path = "${vault_mount.kv.path}/k3s/envs"
+resource "vault_generic_secret" "k3s_params" {
+  path = "${vault_mount.kv.path}/${var.k3s_params_path}"
 
   data_json = jsonencode(
-    var.k3s_envs
-    # {
-    #   "keepalived_virtual_ip" = var.k3s_envs.keepalived_virtual_ip,
-    #   "load_balancer_port": var.k3s_envs.load_balancer_port,
-    #   "psql_version": var.k3s_envs.psql_version,
-    #   "k3s_server_cidr_range": var.k3s_envs.k3s_server_cidr_range,
-    #   "k3s_version": var.k3s_envs.k3s_version,
-    #   "api_endpoint": var.k3s_envs.api_endpoint,
-    #   "extra_server_args": "",
-    #   "extra_agent_args": "",
-    # }
+    var.k3s_params
   )
 }
 
@@ -91,13 +78,19 @@ resource "vault_generic_secret" "k3s_envs" {
 #   )
 # }
 
-# resource "vault_generic_secret" "vault_secrets" {
-#   path = "${vault_mount.kv.path}/vault"
-#
-#   data_json = jsonencode(
-#     {
-#       "server" = "${var.vault_vms.server}",
-#     }
-#   )
-# }
-#
+resource "vault_generic_secret" "vault_secrets" {
+  path = "${vault_mount.kv.path}/vault"
+
+  data_json = jsonencode(
+    var.vault_secrets
+  )
+}
+
+resource "vault_generic_secret" "vault_params" {
+  path = "${vault_mount.kv.path}/vault"
+
+  data_json = jsonencode(
+    var.vault_params
+  )
+}
+
