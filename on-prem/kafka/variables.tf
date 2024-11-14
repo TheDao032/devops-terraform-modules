@@ -19,7 +19,7 @@ variable "namespace" {
 variable "helm_release_name" {
   description = "Kafka's helm release name"
   type    = string
-  default = "bitnami"
+  default = "kafka"
 }
 
 variable "helm_release_chart" {

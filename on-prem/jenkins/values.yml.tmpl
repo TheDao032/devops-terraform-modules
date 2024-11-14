@@ -10,7 +10,8 @@ controller:
     ingressClassName: traefik
     annotations:
       kubernetes.io/ingress.class: "traefik"
-      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+      traefik.ingress.kubernetes.io/router.tls: "true"
     ## hostName: ${jenkins_hostname}
 
   jenkinsUrl: ${jenkins_url}

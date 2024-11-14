@@ -10,6 +10,7 @@ resource "helm_release" "main" {
   chart            = var.helm_release_chart
   create_namespace = true
   upgrade_install  = true
+
   values = (fileexists(local.value_file) ?
     [
       templatefile(
@@ -22,3 +23,4 @@ resource "helm_release" "main" {
       )
   ] : null)
 }
+

@@ -4,7 +4,7 @@ variable "chart_version" {
 
 variable "namespace" {
   type    = string
-  default = "monitoring"
+  default = "default"
 }
 
 variable "helm_release_name" {
@@ -25,20 +25,8 @@ variable "helm_repository" {
   default = "https://prometheus-community.github.io/helm-charts"
 }
 
-variable "prometheus" {
-  description = "Prometheus Ingress Data"
-  type        = map(any)
-  default     = {}
-}
-
-variable "alertmanager" {
-  description = "Alertmanager Ingress Data"
-  type        = map(any)
-  default     = {}
-}
-
-variable "grafana" {
-  description = "Grafana Ingress Data"
-  type        = map(any)
-  default     = {}
+variable "email" {
+  description = "Letencrypt email register"
+  type        = string
+  default     = ""
 }
