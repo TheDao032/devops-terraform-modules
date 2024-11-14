@@ -1,62 +1,47 @@
 alertmanager:
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: traefik  # Use traefik as the ingress controller
 
     annotations:
       kubernetes.io/ingress.class: "traefik"
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      ## traefik.ingress.kubernetes.io/router.middlewares: "kube-system-alertmanager-strip-prefix@kubernetescrd"
       traefik.ingress.kubernetes.io/router.tls: "true"
-      ## cert-manager.io/issuer: "letsencrypt-prod"
 
     ## hosts:
     ##   - ${alertmanager.ingress.host}  # Use a local DNS name; we will configure the /etc/hosts to map this
     path: ${alertmanager.ingress.prefix}
     pathType: ${alertmanager.ingress.prefix_type}
-    tls: # Empty TLS means no HTTPS; if you want HTTPS, configure a self-signed certificate or another method
-      - hosts:
-        - nthedao.info
-        secretName: letsencrypt-prod
 
 grafana:
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: traefik  # Use traefik as the ingress controller
 
     annotations:
       kubernetes.io/ingress.class: "traefik"
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      ## traefik.ingress.kubernetes.io/router.middlewares: "kube-system-grafana-strip-prefix@kubernetescrd"
       traefik.ingress.kubernetes.io/router.tls: "true"
 
     ## hosts:
     ##   - ${grafana.ingress.host}  # Use a local DNS name; we will configure the /etc/hosts to map this
     path: ${grafana.ingress.prefix}
     pathType: ${grafana.ingress.prefix_type}
-    tls: # Empty TLS means no HTTPS; if you want HTTPS, configure a self-signed certificate or another method
-      - hosts:
-        - nthedao.info
-        secretName: letsencrypt-prod
+    # tls: []  # Empty TLS means no HTTPS; if you want HTTPS, configure a self-signed certificate or another method
 
   adminPassword: ${grafana.auth.password}
 
 prometheus:
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: traefik  # Use traefik as the ingress controller
 
     annotations:
       kubernetes.io/ingress.class: "traefik"
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      ## traefik.ingress.kubernetes.io/router.middlewares: "kube-system-prometheus-strip-prefix@kubernetescrd"
       traefik.ingress.kubernetes.io/router.tls: "true"
 
     ## hosts:
     ##   - ${prometheus.ingress.host}  # Use a local DNS name; we will configure the /etc/hosts to map this
     path: ${prometheus.ingress.prefix}
     pathType: ${prometheus.ingress.prefix_type}
-    tls: # Empty TLS means no HTTPS; if you want HTTPS, configure a self-signed certificate or another method
-      - hosts:
-        - nthedao.info
-        secretName: letsencrypt-prod

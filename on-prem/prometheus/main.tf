@@ -10,17 +10,15 @@ resource "helm_release" "main" {
   chart            = var.helm_release_chart
   create_namespace = true
   upgrade_install  = true
-
   values = (fileexists(local.value_file) ?
     [
       templatefile(
         local.value_file,
         {
-          alertmanager   = var.alertmanager,
-          prometheus     = var.prometheus,
-          grafana        = var.grafana,
+        alertmanager   = var.alertmanager,
+        prometheus     = var.prometheus,
+        grafana        = var.grafana,
         },
       )
   ] : null)
 }
-
