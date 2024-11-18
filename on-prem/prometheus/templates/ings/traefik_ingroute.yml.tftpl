@@ -1,0 +1,38 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ${ingress_route_name}
+  namespace: ${namespace}
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    traefik.ingress.kubernetes.io/router.middlewares: ${middleware_annotations}
+spec:
+  entryPoints:
+    - web
+    - websecure  # Enable websecure if you want HTTPS support
+  routes:
+    - match: ${match_condition}
+      kind: Rule
+      middlewares:
+      %{ for middl in middlewares ~}
+      %{ for k, v in middl ~}
+      %{ if k == "name" ~}
+      - ${k}: ${v}
+      %{ else ~}
+        ${k}: ${v}
+      %{ endif ~}
+      %{ endfor ~}
+      %{ endfor ~}
+
+      services:
+      %{ for service in services ~}
+      %{ for k, v in service ~}
+      %{ if k == "name" ~}
+      - ${k}: ${v}
+      %{ else ~}
+        ${k}: ${v}
+      %{ endif ~}
+      %{ endfor ~}
+      %{ endfor ~}

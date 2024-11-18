@@ -6,11 +6,12 @@ alertmanager:
     annotations:
       kubernetes.io/ingress.class: "traefik"
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: kube-system-alertmanager-strip-prefix@kubernetescrd
 
     ## hosts:
     ##   - ${alertmanager.ingress.host}  # Use a local DNS name; we will configure the /etc/hosts to map this
-    path: ${alertmanager.ingress.prefix}
+    paths:
+      - ${alertmanager.ingress.prefix}
     pathType: ${alertmanager.ingress.prefix_type}
 
 grafana:
@@ -21,7 +22,7 @@ grafana:
     annotations:
       kubernetes.io/ingress.class: "traefik"
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: kube-system-grafana-strip-prefix@kubernetescrd
 
     ## hosts:
     ##   - ${grafana.ingress.host}  # Use a local DNS name; we will configure the /etc/hosts to map this
@@ -39,7 +40,7 @@ prometheus:
     annotations:
       kubernetes.io/ingress.class: "traefik"
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: kube-system-prometheus-strip-prefix@kubernetescrd
 
     ## hosts:
     ##   - ${prometheus.ingress.host}  # Use a local DNS name; we will configure the /etc/hosts to map this

@@ -1,3 +1,7 @@
+variable "environment" {
+  type    = string
+}
+
 variable "chart_version" {
   type    = string
 }
@@ -41,4 +45,9 @@ variable "grafana" {
   description = "Grafana Ingress Data"
   type        = map(any)
   default     = {}
+}
+
+variable "external_server_ip" {
+  description = "External server ip"
+  type    = string
 }
