@@ -14,8 +14,8 @@ spec:
           cloudflare:
             email: ${email}
             apiTokenSecretRef:
-              name: cloudflare-token-secret
-              key: cloudflare-token
+              name: ${cloudflare_secret_name}
+              key: apiKey
         selector:
           dnsZones:
             - "nthedao.info"

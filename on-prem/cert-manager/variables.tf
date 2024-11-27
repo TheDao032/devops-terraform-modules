@@ -1,32 +1,43 @@
 variable "chart_version" {
-  type    = string
+  type = string
 }
 
 variable "namespace" {
   type    = string
-  default = "default"
+  default = "cert-manager"
 }
 
 variable "helm_release_name" {
   description = "Prometheus's helm release name"
-  type    = string
-  default = "prometheus"
+  type        = string
+  default     = ""
 }
 
 variable "helm_release_chart" {
   description = "Prometheus's helm release chart name"
-  type    = string
-  default = "kube-prometheus-stack"
+  type        = string
+  default     = ""
 }
 
 variable "helm_repository" {
   description = "Prometheus's helm repository"
-  type    = string
-  default = "https://prometheus-community.github.io/helm-charts"
+  type        = string
+  default     = ""
 }
 
 variable "email" {
   description = "Letencrypt email register"
   type        = string
   default     = ""
+}
+
+variable "cloudflare_secret_name" {
+  description = "Cloudflare api secret name"
+  type        = string
+  default     = "cloudflare-api-token-secret"
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare api secret token"
+  type        = string
 }

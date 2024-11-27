@@ -1,0 +1,15 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: local-nthedao-info
+  namespace: default
+spec:
+  secretName: local-nthedao-info-staging-tls
+  issuerRef:
+    name: ${issuer_name}
+    kind: ClusterIssuer
+  commonName: "*.local.nthedao.info"
+  dnsName:
+  - "local.nthedao.info"
+  - "*.local.nthedao.info"
