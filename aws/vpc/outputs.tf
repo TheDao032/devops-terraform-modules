@@ -19,15 +19,3 @@ output "private_subnets" {
   # value = join(",", [for subnet in aws_subnet.private : subnet.id])
   value = module.vpc.public_subnets
 }
-
-output "eks_securitygroup" {
-  value = aws_security_group.eks.id
-}
-
-output "eks_node_securitygroup" {
-  value = aws_security_group.eks_node.id
-}
-
-output "gateway_securitygroup" {
-  value = aws_security_group.gateway.id
-}
