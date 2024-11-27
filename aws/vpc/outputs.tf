@@ -1,6 +1,6 @@
-output "azs" {
-  value = join(",", local.azs)
-}
+# output "azs" {
+#   value = join(",", local.azs)
+# }
 
 # output "id" {
 #   value = module.vpc.vpc_id
