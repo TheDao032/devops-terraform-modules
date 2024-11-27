@@ -17,9 +17,9 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_ingress" {
   security_group_id            = aws_security_group.ec2.id
   referenced_security_group_id = aws_security_group.ec2.id
 
-  from_port   = 0
   ip_protocol = "-1"
-  to_port     = 0
+  # from_port   = 0
+  # to_port     = 0
 
   tags = merge(
     { Name = "${var.environment}-ec2-sg-ingress-rule" },
