@@ -74,8 +74,8 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  count = length(var.public_cidr)
-  vpc   = true
+  count  = length(var.public_cidr)
+  domain = "vpc"
 
   tags = merge(
     { Name = "${var.environment}-NAT-${count.index}" },
