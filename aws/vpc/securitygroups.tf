@@ -28,9 +28,23 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_ingress" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "ec2_egress" {
-  security_group_id            = aws_security_group.ec2.id
-  referenced_security_group_id = aws_security_group.ec2.id
+  security_group_id = aws_security_group.ec2.id
 
+  cidr_ipv4   = "0.0.0.0/0"
+  from_port   = 0
+  ip_protocol = "-1"
+  to_port     = 0
+
+  tags = merge(
+    { Name = "${var.environment}-ec2-sg-egress-rule" },
+    var.tags
+  )
+}
+
+resource "aws_vpc_security_group_egress_rule" "ec2_egress" {
+  security_group_id = aws_security_group.ec2.id
+
+  cidr_ipv6   = "::/0"
   from_port   = 0
   ip_protocol = "-1"
   to_port     = 0
