@@ -9,9 +9,9 @@ module "vpc" {
   name = var.environment
   cidr = var.vpc_cidr_block
 
-  azs = local.azs
-  # private_subnets = var.private_cidr
-  public_subnets = var.public_cidr
+  azs             = local.azs
+  private_subnets = var.private_cidr
+  public_subnets  = var.public_cidr
 
   enable_dns_hostnames = true
 
