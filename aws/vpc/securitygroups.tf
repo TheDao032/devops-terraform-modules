@@ -5,7 +5,7 @@ locals {
 resource "aws_security_group" "ec2" {
   name        = "${var.environment}-ec2-sg"
   description = "EC2 Security Groups"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = aws_vpc.main.id
 
   tags = merge(
     { Name = "${var.environment}-ec2-sg" },
