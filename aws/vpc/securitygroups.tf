@@ -13,10 +13,10 @@ resource "aws_security_group" "ec2" {
   )
 }
 
-resource "aws_vpc_security_group_ingress_rule" "ec2_ingress_ipv4" {
-  security_group_id = aws_security_group.ec2.id
+resource "aws_vpc_security_group_ingress_rule" "ec2_ingress" {
+  security_group_id            = aws_security_group.ec2.id
+  referenced_security_group_id = aws_security_group.ec2.id
 
-  cidr_ipv4   = aws_vpc.main.cidr_block
   from_port   = 0
   ip_protocol = "-1"
   to_port     = 0
@@ -27,38 +27,10 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_ingress_ipv4" {
   )
 }
 
-resource "aws_vpc_security_group_ingress_rule" "ec2_ingress_ipv6" {
-  security_group_id = aws_security_group.ec2.id
+resource "aws_vpc_security_group_egress_rule" "ec2_egress" {
+  security_group_id            = aws_security_group.ec2.id
+  referenced_security_group_id = aws_security_group.ec2.id
 
-  cidr_ipv6   = aws_vpc.main.ipv6_cidr_block
-  from_port   = 0
-  ip_protocol = "-1"
-  to_port     = 0
-
-  tags = merge(
-    { Name = "${var.environment}-ec2-sg-ingress-rule" },
-    var.tags
-  )
-}
-
-resource "aws_vpc_security_group_egress_rule" "ec2_egress_ipv4" {
-  security_group_id = aws_security_group.ec2.id
-
-  cidr_ipv4   = "0.0.0.0/0"
-  from_port   = 0
-  ip_protocol = "-1"
-  to_port     = 0
-
-  tags = merge(
-    { Name = "${var.environment}-ec2-sg-egress-rule" },
-    var.tags
-  )
-}
-
-resource "aws_vpc_security_group_egress_rule" "ec2_egress_ipv6" {
-  security_group_id = aws_security_group.ec2.id
-
-  cidr_ipv6   = "::/0"
   from_port   = 0
   ip_protocol = "-1"
   to_port     = 0
