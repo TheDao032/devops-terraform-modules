@@ -1,20 +1,20 @@
-locals {}
+locals {
+  azs = sort(var.azs)
+}
 
-module "vpc" {
-  source = "terraform-aws-modules/vpc/aws"
+resource "aws_instance" "example" {
+  count         = length(var.ec2_instances)
+  ami           = data.aws_ami.amzn-linux-2023-ami.id
+  instance_type = "t3.medium"
+  subnet_id     = var.ec2_subnet_id
 
-  name = var.environment
-  cidr = "10.0.0.0/16"
-
-  azs             = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
-
-  enable_nat_gateway = true
-  # enable_vpn_gateway = true
-
-  tags = {
-    Terraform   = "true"
-    Environment = "dev"
+  cpu_options {
+    core_count       = 2
+    threads_per_core = 2
   }
+
+  tags = merge(
+    { Name = var.environment },
+    var.tags
+  )
 }
