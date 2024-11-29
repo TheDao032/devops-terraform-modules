@@ -24,7 +24,7 @@ locals {
 
 resource "aws_instance" "main" {
   count         = length(local.ec2_instances)
-  ami           = data.aws_ami.amzn-linux-2023-ami.id
+  ami           = data.aws_ami.amazon_linux_2023.id
   instance_type = local.ec2_instances[count.index].instance_type
   subnet_id     = local.ec2_instances[count.index].subnet_id
 
