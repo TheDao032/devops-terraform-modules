@@ -19,6 +19,6 @@ data "aws_ami" "amazon_linux_2023" {
   owners = ["amazon"] # Official Amazon AMIs
 }
 
-output "amazon_linux_2023_ami_id" {
-  value = data.aws_ami.amazon_linux_2023.id
-}
+# output "amazon_linux_2023_ami_id" {
+#   value = data.aws_ami.amazon_linux_2023.id
+# }
