@@ -4,8 +4,8 @@ variable "environment" {
 
 variable "namespace" {
   description = "Vault namespace"
-  type    = string
-  default = "default"
+  type        = string
+  default     = "default"
 }
 
 variable "database" {
@@ -34,6 +34,11 @@ variable "kafka" {
 }
 
 variable "k3s" {
+  type    = map(any)
+  default = {}
+}
+
+variable "keycloak" {
   type    = map(any)
   default = {}
 }

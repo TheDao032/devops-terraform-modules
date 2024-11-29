@@ -11,11 +11,6 @@ variable "tags" {
   default = {}
 }
 
-variable "ec2_instances" {
-  type    = list(any)
-  default = []
-}
-
-variable "ec2_subnet_id" {
+variable "subnet_id" {
   type = string
 }
