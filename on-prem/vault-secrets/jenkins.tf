@@ -35,7 +35,7 @@ resource "random_password" "jenkins_secrets" {
 
 resource "vault_generic_secret" "jenkins_secrets" {
   for_each = local.jenkins_secrets
-  path = "${vault_mount.kv.path}/${each.key}"
+  path     = "${vault_mount.kv.path}/${each.key}"
 
   data_json = jsonencode(
     each.value

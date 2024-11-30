@@ -41,6 +41,7 @@ variable "k3s" {
 variable "keycloak" {
   type    = map(any)
   default = {}
+
 }
 
 variable "global" {

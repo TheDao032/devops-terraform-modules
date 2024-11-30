@@ -17,3 +17,8 @@ output "database_secrets" {
   value     = local.database_secrets
   sensitive = true
 }
+
+output "keycloak_secrets" {
+  value     = local.keycloak_secrets
+  sensitive = true
+}

@@ -1,7 +1,7 @@
 resource "vault_mount" "kv" {
-  path        = var.environment
-  type        = "kv"
-  options     = {
+  path = var.environment
+  type = "kv"
+  options = {
     version = "2"
   }
   description = "KV Version 2 secret engine mount"
@@ -9,7 +9,7 @@ resource "vault_mount" "kv" {
 
 resource "vault_generic_secret" "k3s" {
   for_each = var.k3s
-  path = "${vault_mount.kv.path}/${each.key}"
+  path     = "${vault_mount.kv.path}/${each.key}"
 
   data_json = jsonencode(
     each.value
@@ -18,24 +18,24 @@ resource "vault_generic_secret" "k3s" {
 
 resource "vault_generic_secret" "vault_secrets" {
   for_each = var.vault
-  path = "${vault_mount.kv.path}/${each.key}"
+  path     = "${vault_mount.kv.path}/${each.key}"
 
   data_json = jsonencode(
     each.value
   )
 
-  depends_on = [ vault_mount.kv ]
+  depends_on = [vault_mount.kv]
 }
 
 resource "vault_generic_secret" "global_secrets" {
   for_each = var.global
-  path = "${vault_mount.kv.path}/${each.key}"
+  path     = "${vault_mount.kv.path}/${each.key}"
 
   data_json = jsonencode(
     each.value
   )
 
-  depends_on = [ vault_mount.kv ]
+  depends_on = [vault_mount.kv]
 }
 
 # resource "vault_generic_secret" "psql_server_secrets" {
@@ -50,4 +50,3 @@ resource "vault_generic_secret" "global_secrets" {
 #     }
 #   )
 # }
-

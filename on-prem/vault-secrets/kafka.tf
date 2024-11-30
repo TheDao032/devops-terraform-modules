@@ -35,11 +35,11 @@ resource "random_password" "kafka_secrets" {
 
 resource "vault_generic_secret" "kafka_secrets" {
   for_each = local.kafka_secrets
-  path = "${vault_mount.kv.path}/${each.key}"
+  path     = "${vault_mount.kv.path}/${each.key}"
 
   data_json = jsonencode(
     each.value
   )
 
-  depends_on = [ vault_mount.kv ]
+  depends_on = [vault_mount.kv]
 }

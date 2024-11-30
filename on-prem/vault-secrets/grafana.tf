@@ -35,11 +35,11 @@ resource "random_password" "grafana_secrets" {
 
 resource "vault_generic_secret" "grafana_secrets" {
   for_each = local.grafana_secrets
-  path = "${vault_mount.kv.path}/${each.key}"
+  path     = "${vault_mount.kv.path}/${each.key}"
 
   data_json = jsonencode(
     each.value
   )
 
-  depends_on = [ vault_mount.kv ]
+  depends_on = [vault_mount.kv]
 }
