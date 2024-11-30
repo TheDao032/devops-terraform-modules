@@ -20,6 +20,8 @@ resource "aws_internet_gateway" "main" {
     { Name = var.environment },
     var.tags
   )
+
+  depends_on = [aws_vpc.main]
 }
 
 resource "aws_subnet" "public" {
@@ -34,6 +36,8 @@ resource "aws_subnet" "public" {
     # { "kubernetes.io/role/elb" = "1" },
     var.tags
   )
+
+  depends_on = [aws_vpc.main]
 }
 
 resource "aws_route_table" "public" {
@@ -49,6 +53,8 @@ resource "aws_route_table" "public" {
     { Name = "${var.environment}-public-${count.index}" },
     var.tags
   )
+
+  depends_on = [aws_vpc.main, aws_internet_gateway.main]
 }
 
 resource "aws_route_table_association" "public" {
@@ -56,6 +62,8 @@ resource "aws_route_table_association" "public" {
 
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public[count.index].id
+
+  depends_on = [aws_subnet.public, aws_route_table.public]
 }
 
 
@@ -71,6 +79,8 @@ resource "aws_subnet" "private" {
     # { "kubernetes.io/role/internal-elb" = "1" },
     var.tags
   )
+
+  depends_on = [aws_vpc.main]
 }
 
 resource "aws_eip" "nat" {
@@ -82,7 +92,7 @@ resource "aws_eip" "nat" {
     var.tags
   )
 
-  depends_on = [aws_internet_gateway.main]
+  # depends_on = [aws_internet_gateway.main]
 }
 
 resource "aws_nat_gateway" "main" {
@@ -97,7 +107,7 @@ resource "aws_nat_gateway" "main" {
 
   # To ensure proper ordering, it is recommended to add an explicit dependency
   # on the Internet Gateway for the VPC.
-  depends_on = [aws_internet_gateway.main]
+  depends_on = [aws_subnet.private, aws_eip.nat]
 }
 
 resource "aws_route_table" "private" {
@@ -113,6 +123,8 @@ resource "aws_route_table" "private" {
     { Name = "${var.environment}-private-${count.index}" },
     var.tags
   )
+
+  depends_on = [aws_vpc.main, aws_nat_gateway.main]
 }
 
 resource "aws_route_table_association" "private" {
@@ -120,6 +132,8 @@ resource "aws_route_table_association" "private" {
 
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index].id
+
+  depends_on = [aws_subnet.private, aws_route_table.private]
 }
 
 # module "vpc" {
