@@ -4,19 +4,19 @@ locals {
     {
       subnet_id        = var.subnet_id
       instance_type    = "t3.medium"
-      core_count       = 2
+      core_count       = 1
       threads_per_core = 2
     },
     {
       subnet_id        = var.subnet_id
       instance_type    = "t3.medium"
-      core_count       = 2
+      core_count       = 1
       threads_per_core = 2
     },
     {
       subnet_id        = var.subnet_id
       instance_type    = "t3.medium"
-      core_count       = 2
+      core_count       = 1
       threads_per_core = 2
     }
   ]
