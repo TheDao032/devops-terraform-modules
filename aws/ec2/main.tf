@@ -2,17 +2,17 @@ locals {
   azs = sort(var.azs)
   ec2_instances = [
     {
-      subnet_id        = var.subnet_id
+      subnet_id        = var.public_subnet_id
       instance_type    = "t3.medium"
       core_count       = 1
       threads_per_core = 2
     },
-    # {
-    #   subnet_id        = var.subnet_id
-    #   instance_type    = "t3.medium"
-    #   core_count       = 1
-    #   threads_per_core = 2
-    # },
+    {
+      subnet_id        = var.private_subnet_id
+      instance_type    = "t3.medium"
+      core_count       = 1
+      threads_per_core = 2
+    },
     # {
     #   subnet_id        = var.subnet_id
     #   instance_type    = "t3.medium"
