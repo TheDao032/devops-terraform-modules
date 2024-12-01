@@ -1,6 +1,27 @@
 locals {
   azs = sort(var.azs)
-  ec2_instances = [
+  public_ec2_instances = [
+    {
+      subnet_id        = var.public_subnet_id
+      instance_type    = "t3.medium"
+      core_count       = 1
+      threads_per_core = 2
+    },
+    {
+      subnet_id        = var.private_subnet_id
+      instance_type    = "t3.medium"
+      core_count       = 1
+      threads_per_core = 2
+    },
+    # {
+    #   subnet_id        = var.subnet_id
+    #   instance_type    = "t3.medium"
+    #   core_count       = 1
+    #   threads_per_core = 2
+    # }
+  ]
+
+  private_ec2_instances = [
     {
       subnet_id        = var.public_subnet_id
       instance_type    = "t3.medium"
@@ -22,19 +43,47 @@ locals {
   ]
 }
 
-resource "aws_instance" "main" {
-  count         = length(local.ec2_instances)
-  ami           = data.aws_ami.amazon_linux_2023.id
-  instance_type = local.ec2_instances[count.index].instance_type
-  subnet_id     = local.ec2_instances[count.index].subnet_id
+resource "aws_key_pair" "k3s_cluster" {
+  key_name   = var.key_pair
+  public_key = var.ssh_public_key
+}
+
+resource "aws_instance" "public_instances" {
+  count                       = length(local.public_ec2_instances)
+  ami                         = data.aws_ami.amazon_linux_2023.id
+  instance_type               = local.public_ec2_instances[count.index].instance_type
+  subnet_id                   = local.public_ec2_instances[count.index].subnet_id
+  vpc_security_group_ids      = [var.public_sg_id]
+  associate_public_ip_address = var.associate_public_ip_address
+  key_name                    = var.key_pair
 
   cpu_options {
-    core_count       = local.ec2_instances[count.index].core_count
-    threads_per_core = local.ec2_instances[count.index].threads_per_core
+    core_count       = local.public_ec2_instances[count.index].core_count
+    threads_per_core = local.public_ec2_instances[count.index].threads_per_core
   }
 
   tags = merge(
-    { Name = var.environment },
+    { Name = "${var.environment}-${count.index}" },
+    var.tags
+  )
+
+}
+
+resource "aws_instance" "private_instances" {
+  count                  = length(local.private_ec2_instances)
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = local.private_ec2_instances[count.index].instance_type
+  subnet_id              = local.private_ec2_instances[count.index].subnet_id
+  vpc_security_group_ids = [var.private_sg_id]
+  key_name               = var.key_pair
+
+  cpu_options {
+    core_count       = local.private_ec2_instances[count.index].core_count
+    threads_per_core = local.private_ec2_instances[count.index].threads_per_core
+  }
+
+  tags = merge(
+    { Name = "${var.environment}-${count.index}" },
     var.tags
   )
 }

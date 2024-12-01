@@ -35,3 +35,11 @@ output "public_subnets" {
 output "private_subnets" {
   value = join(",", [for subnet in aws_subnet.private : subnet.id])
 }
+
+output "private_sg" {
+  value = aws_security_group.private_sg.id
+}
+
+output "public_sg" {
+  value = aws_security_group.public_sg.id
+}

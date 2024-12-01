@@ -25,10 +25,11 @@ resource "aws_internet_gateway" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count             = length(var.public_cidr)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.public_cidr[count.index]
-  availability_zone = local.azs[count.index]
+  count                   = length(var.public_cidr)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_cidr[count.index]
+  availability_zone       = local.azs[count.index]
+  map_public_ip_on_launch = var.map_public_ip_on_launch
 
   tags = merge(
     { Name = "${var.environment}-public-${count.index}" },
@@ -84,11 +85,11 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  count  = length(var.public_cidr)
+  count  = length(var.private_cidr)
   domain = "vpc"
 
   tags = merge(
-    { Name = "${var.environment}-NAT-${count.index}" },
+    { Name = "${var.environment}-nat-${count.index}" },
     var.tags
   )
 
@@ -96,7 +97,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count         = length(var.public_cidr)
+  count         = length(var.private_cidr)
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.private[count.index].id
 
