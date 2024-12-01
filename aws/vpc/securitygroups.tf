@@ -64,6 +64,18 @@ resource "aws_vpc_security_group_egress_rule" "private_egress" {
   )
 }
 
+resource "aws_vpc_security_group_ingress_rule" "private_sg_ingress_self" {
+  security_group_id            = aws_security_group.public_sg.id
+  referenced_security_group_id = aws_security_group.public_sg.id
+
+  ip_protocol = "-1"
+
+  tags = merge(
+    { Name = "${var.environment}-public-sg-self-ingress-rule" },
+    var.tags
+  )
+}
+
 resource "aws_vpc_security_group_ingress_rule" "public_ingress_ipv4" {
   count             = length(local.service_ports)
   security_group_id = aws_security_group.public_sg.id
