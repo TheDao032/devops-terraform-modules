@@ -64,7 +64,7 @@ resource "aws_vpc_security_group_egress_rule" "private_egress" {
   )
 }
 
-resource "aws_vpc_security_group_ingress_rule" "private_sg_ingress_self" {
+resource "aws_vpc_security_group_ingress_rule" "public_sg_ingress_self" {
   security_group_id            = aws_security_group.public_sg.id
   referenced_security_group_id = aws_security_group.public_sg.id
 
