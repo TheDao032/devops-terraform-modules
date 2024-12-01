@@ -85,7 +85,7 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  count  = length(var.private_cidr)
+  count  = length(var.public_cidr)
   domain = "vpc"
 
   tags = merge(
@@ -97,9 +97,9 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count         = length(var.private_cidr)
+  count         = length(var.public_cidr)
   allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.private[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
 
   tags = merge(
     { Name = "${var.environment}-${count.index}" },
@@ -108,7 +108,7 @@ resource "aws_nat_gateway" "main" {
 
   # To ensure proper ordering, it is recommended to add an explicit dependency
   # on the Internet Gateway for the VPC.
-  depends_on = [aws_subnet.private, aws_eip.nat]
+  depends_on = [aws_subnet.public, aws_eip.nat, aws_internet_gateway.main]
 }
 
 resource "aws_route_table" "private" {
