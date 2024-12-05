@@ -1,5 +1,5 @@
 locals {
-  value_file         = "${path.module}/values.yml.tmpl"
+  value_file         = "${path.module}/values.yml.tftpl"
   sc_value_file      = "${path.module}/sc.yml.tmpl"
   storage_class_name = "kafka-sc"
 }
@@ -7,7 +7,7 @@ locals {
 resource "kubectl_manifest" "storage_class" {
   yaml_body = templatefile(local.sc_value_file, {
     storage_class_name = local.storage_class_name
-    namespace = var.namespace
+    namespace          = var.namespace
   })
 }
 
@@ -24,11 +24,11 @@ resource "helm_release" "main" {
       templatefile(
         local.value_file,
         {
-          kafka_version         = var.image_tag
-          storage_class_name    = local.storage_class_name
-          controller_conf       = var.controller_conf
-          broker_conf           = var.broker_conf
-          sasl_conf             = var.sasl_conf
+          kafka_version      = var.image_tag
+          storage_class_name = local.storage_class_name
+          controller_conf    = var.controller_conf
+          broker_conf        = var.broker_conf
+          sasl_conf          = var.sasl_conf
         }
       )
   ] : null)

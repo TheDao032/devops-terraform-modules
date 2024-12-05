@@ -1,10 +1,10 @@
 grafana:
   grafana.ini:
       server:
-        root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana"
+        root_url: "%(protocol)s://%(domain)s:%(http_port)s${grafana.ingress.prefix}"
 
   adminPassword: ${grafana.auth.password}
 
 prometheus:
   prometheusSpec:
-    externalUrl: ///prometheus
+    externalUrl: //${prometheus.ingress.prefix}

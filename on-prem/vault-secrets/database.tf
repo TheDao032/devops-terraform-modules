@@ -6,6 +6,16 @@ locals {
     } if length({ for k, v in creds : k => v if contains(split(" ", v), "_RANDOM_") }) > 0
   }
 
+  flattened_database_secrets_parameters = flatten([
+    for path, creds in local.database_secrets_parameters : [
+      for key, value in creds : {
+        path  = path
+        key   = key
+        value = value
+      }
+    ]
+  ])
+
   # Generate resolved secrets from random_password
   database_secrets_resolve_parameters = {
     for path, creds in local.database_secrets_parameters : path => {
@@ -13,7 +23,7 @@ locals {
     } if length({ for k, v in creds : k => v if contains(split(" ", v), "_RANDOM_") }) > 0
   }
 
-  # Merge original `database` values with generated passwords
+  # # Merge original `database` values with generated passwords
   database_secrets = {
     for path, creds in var.database : path => merge(
       creds,
@@ -23,9 +33,23 @@ locals {
 
 }
 
+# resource "random_password" "database_secrets" {
+#   for_each         = { for path, creds in local.database_secrets_parameters : "${path}_${keys(creds)[0]}" => creds }
+#   length           = regex("[0-9]+", each.value[keys(each.value)[0]])
+#   override_special = "!()-_=+"
+#
+#   lifecycle {
+#     ignore_changes = [override_special]
+#   }
+# }
+
 resource "random_password" "database_secrets" {
-  for_each         = { for path, creds in local.database_secrets_parameters : "${path}_${keys(creds)[0]}" => creds }
-  length           = regex("[0-9]+", each.value[keys(each.value)[0]])
+  for_each = {
+    for secret in local.flattened_database_secrets_parameters :
+    "${secret.path}_${secret.key}" => secret
+  }
+
+  length           = regex("[0-9]+", each.value.value)
   override_special = "!()-_=+"
 
   lifecycle {

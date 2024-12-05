@@ -34,7 +34,12 @@ variable "external_server_ip" {
   type        = string
 }
 
+variable "keycloak_conf" {
+  description = "keycloak configurations"
+  type        = map(any)
+}
+
 variable "keycloak_host" {
-  description = "Grafana server ip"
+  description = "keycloak host name"
   type        = string
 }

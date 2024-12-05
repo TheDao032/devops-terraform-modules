@@ -47,13 +47,13 @@ externalAccess:
   enabled: true
   broker:
     service:
-      loadBalancerClass: traefik
+      ## loadBalancerClass: traefik
       type: LoadBalancer
       ports:
         external: 9094
   controller:
     service:
-      loadBalancerClass: traefik
+      ## loadBalancerClass: traefik
       type: LoadBalancer
   autoDiscovery:
     enabled: true
