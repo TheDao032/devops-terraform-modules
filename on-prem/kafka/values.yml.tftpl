@@ -1,11 +1,6 @@
 global:
   storageClass: ${storage_class_name}
 
-image:
-  registry: "docker.io"
-  repository: "bitnami/kafka"
-  tag: ${kafka_version}
-
 heapOpts: -XX:InitialRAMPercentage=75 -XX:MaxRAMPercentage=75
 
 sasl:
@@ -23,40 +18,35 @@ controller:
     enabled: true
     storageClass: ${storage_class_name}
     mountPath: ${controller_conf.mount_path}
+    size: ${controller_conf.size}
   autoscaling:
     hpa:
       enabled: ${controller_conf.hpa_active}
       minReplicas: ${controller_conf.min_replicas}
       maxReplicas: ${controller_conf.max_replicas}
 
-broker:
-  replicaCount: ${broker_conf.replica_count}
-  automountServiceAccountToken: true
-  heapOpts: -Xmx1024m -Xms1024m
-  persistence:
-    enabled: true
-    storageClass: ${storage_class_name}
-    mountPath: ${broker_conf.mount_path}
-  autoscaling:
-    hpa:
-      enabled: ${broker_conf.hpa_active}
-      minReplicas: ${broker_conf.min_replicas}
-      maxReplicas: ${broker_conf.max_replicas}
+#broker:
+#  replicaCount: ${broker_conf.replica_count}
+#  automountServiceAccountToken: true
+#  heapOpts: -Xmx1024m -Xms1024m
+#  persistence:
+#    enabled: true
+#    storageClass: ${storage_class_name}
+#    mountPath: ${broker_conf.mount_path}
+#    size: ${broker_conf.size}
+#  autoscaling:
+#    hpa:
+#      enabled: ${broker_conf.hpa_active}
+#      minReplicas: ${broker_conf.min_replicas}
+#      maxReplicas: ${broker_conf.max_replicas}
 
 externalAccess:
-  enabled: true
-  broker:
-    service:
-      ## loadBalancerClass: traefik
-      type: LoadBalancer
-      ports:
-        external: 9094
-  controller:
-    service:
-      ## loadBalancerClass: traefik
-      type: LoadBalancer
   autoDiscovery:
     enabled: true
+  enabled: true
+  controller:
+    service:
+      type: LoadBalancer
 
 serviceAccount:
   create: true

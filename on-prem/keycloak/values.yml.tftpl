@@ -24,10 +24,161 @@ auth:
 postgresql:
   enabled: true
   auth:
-    postgresPassword: "${keycloak.database.pg_password}"
+    postgresPassword: ${keycloak.database.pg_password}
     username: ${keycloak.database.username}
-    password: "${keycloak.database.password}"
+    password: ${keycloak.database.password}
     database: ${keycloak.database.database}
+
+keycloakConfigCli:
+  image:
+    tag: latest
+  enabled: true
+  configuration:
+    ${realm.name}.json: |
+      {
+        "realm" : ${realm.name},
+        "enabled": true,
+        "clients": [
+        %{ for client in clients ~}
+
+          {
+            "clientId": ${client.id},
+            "name": ${client.name},
+            "rootUrl": ${client.root_url},
+            "adminUrl": ${client.admin_url},
+            "baseUrl": ${client.base_url},
+            "enabled": ${client.enabled},
+            "alwaysDisplayInConsole": ${client.is_alw_display},
+            "surrogateAuthRequired": false,
+            "clientAuthenticatorType": ${client.authenticator_type},
+            "secret": ${client.secret},
+            "redirectUris": ${jsonencode(client.redirect_uris)},
+            "webOrigins": ${jsonencode(client.web_origins)},
+            "protocol": ${client.protocol},
+            "notBefore": 0,
+            "bearerOnly": false,
+            "consentRequired": false,
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": true,
+            "directAccessGrantsEnabled": true,
+            "serviceAccountsEnabled": true,
+            "authorizationServicesEnabled": true,
+            "publicClient": false,
+            "frontchannelLogout": true,
+            "attributes": {
+              "client.introspection.response.allow.jwt.claim.enabled": "false",
+              "login_theme": ${client.attributes.login_theme},
+              "frontchannel.logout.url": ${client.attributes.frontchannel_logout_url},
+              "post.logout.redirect.uris": ${client.attributes.post_logout_redirect_uris},
+              "oauth2.device.authorization.grant.enabled": ${client.attributes.oauth2_device_authorization_grant_enabled},
+              "use.refresh.tokens": "true",
+              "realm_client": "false",
+              "oidc.ciba.grant.enabled": "false",
+              "client.use.lightweight.access.token.enabled": "false",
+              "backchannel.logout.session.required": "true",
+              "client_credentials.use_refresh_token": "false",
+              "acr.loa.map": "{}",
+              "require.pushed.authorization.requests": "false",
+              "tls.client.certificate.bound.access.tokens": "false",
+              "display.on.consent.screen": "false",
+            },
+            "authenticationFlowBindingOverrides": {},
+            "fullScopeAllowed": true,
+            "nodeReRegistrationTimeout": -1,
+            "protocolMappers": [
+              {
+                "name": "Client Host",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usersessionmodel-note-mapper",
+                "consentRequired": false,
+                "config": {
+                  "user.session.note": "clientHost",
+                  "id.token.claim": "true",
+                  "introspection.token.claim": "true",
+                  "access.token.claim": "true",
+                  "claim.name": "clientHost",
+                  "jsonType.label": "String"
+                }
+              },
+              {
+                "name": "Client IP Address",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usersessionmodel-note-mapper",
+                "consentRequired": false,
+                "config": {
+                  "user.session.note": "clientAddress",
+                  "id.token.claim": "true",
+                  "introspection.token.claim": "true",
+                  "access.token.claim": "true",
+                  "claim.name": "clientAddress",
+                  "jsonType.label": "String"
+                }
+              },
+              {
+                "name": "Client ID",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usersessionmodel-note-mapper",
+                "consentRequired": false,
+                "config": {
+                  "user.session.note": "client_id",
+                  "id.token.claim": "true",
+                  "introspection.token.claim": "true",
+                  "access.token.claim": "true",
+                  "claim.name": "client_id",
+                  "jsonType.label": "String"
+                }
+              }
+            ],
+            "defaultClientScopes": ${jsonencode(client.default_client_scopes)},
+            "optionalClientScopes": ${jsonencode(client.optional_client_scopes)},
+            "access": {
+              "view": true,
+              "configure": true,
+              "manage": true
+            }
+          },
+
+        %{ endfor ~}
+        ],
+        "components": {
+          "org.keycloak.storage.UserStorageProvider": [
+          %{ for provider in user_federations ~}
+          %{ if provider.name == "ldap" ~}
+
+            {
+              "name": ${jsonencode(provider.name)},
+              "providerId": ${jsonencode(provider.id)},
+              "config": {
+                "priority": ${jsonencode(provider.config.priority)},
+                "importEnabled": ${jsonencode(provider.config.import_enabled)},
+                "syncRegistrations": ${jsonencode(provider.config.sync_registrations)},
+                "vendor": ${jsonencode(provider.config.vendor)},  # Other vendors: 'ad', 'rhds', etc.
+                "usernameLDAPAttribute": ${jsonencode(provider.config.username_ldap_attribute)},
+                "rdnLDAPAttribute": ${jsonencode(provider.config.rdn_ldap_attribute)},
+                "uuidLDAPAttribute": ${jsonencode(provider.config.uuid_ldap_attribute)},
+                "userObjectClasses": ${jsonencode(provider.config.user_object_classes)},  # Adjust for your LDAP schema
+                "connectionUrl": ${jsonencode(provider.config.connection_url)},  # LDAP server URL
+                "usersDn": ${jsonencode(provider.config.users_dn)},  # LDAP users base DN
+                "authType": ${jsonencode(provider.config.auth_type)},  # 'simple' or 'none'
+                "bindDn": ${jsonencode(provider.config.bind_dn)},  # LDAP bind DN
+                "bindCredential": ${jsonencode(provider.config.bind_credential)},  # LDAP bind password
+                "searchScope": ${jsonencode(provider.config.search_scope)},  # '1' for one-level, '2' for subtree
+                "pagination": ${jsonencode(provider.config.pagination)},
+                "connectionPooling": ${jsonencode(provider.config.connection_pooling)},
+                "cachePolicy": ${jsonencode(provider.config.cache_policy)},  # Cache policy: DEFAULT, EVICT_DAILY, etc.
+                "editMode": ${jsonencode(provider.config.edit_mode)},  # READ_ONLY, WRITABLE, UNSYNCED
+                "fullSyncPeriod": ${jsonencode(provider.config.full_sync_period)}, # ["86400"],  # Full sync period in seconds (24h)
+                "changedSyncPeriod": ${jsonencode(provider.config.changed_sync_period)}, # ["3600"]  # Incremental sync period (1h)
+                "validatePasswordPolicy": ["true"],  # Validate Password Policy: On
+                "trustEmail": ["true"]
+              }
+            },
+
+          %{ endif ~}
+          %{ endfor ~}
+          ]
+        },
+      }
 
 # ingress:
 #   enabled: true
@@ -51,14 +202,28 @@ postgresql:
 #   path: ${keycloak.admin_ingress.prefix}
 #   hostname: "keycloak.admin"
 
-# keycloakConfigCli:
+# stg.yaml: |
+#   realm: stg
 #   enabled: true
-#   configuration:
-#     master.json: |
-#       {
-#         "realm" : "master",
-#         "clients": []
-#       }
-#     slave.yaml: |
-#       realm: slave
-#       clients: []
+#   clients: [
+#     %{ for client in clients ~}
+#
+#     clientId: ${client.id}
+#     name: ${client.name}
+#     rootUrl: ${client.root_url}
+#     adminUrl: ${client.admin_url}
+#     baseUrl: ${client.base_url}
+#     enabled: ${client.enabled}
+#     alwaysDisplayInConsole: ${client.is_alw_display}
+#     clientAuthenticatorType: ${client.authenticator_type}
+#     secret: ${client.secret}
+#     redirectUris: ${jsonencode(client.redirect_uris)}
+#     webOrigins: ${jsonencode(client.web_origins)}
+#     protocol: ${client.protocol}
+#     attributes:
+#       login_theme: ${client.attributes.login_theme}
+#       post.logout.redirect.uris: ${client.attributes.post_logout_redirect_uris}
+#       oauth2.device.authorization.grant.enabled: ${client.attributes.oauth2_device_authorization_grant_enabled}
+#
+#     %{ endfor ~}
+#   ]

@@ -1,6 +1,6 @@
 locals {
   value_file         = "${path.module}/values.yml.tftpl"
-  sc_value_file      = "${path.module}/sc.yml.tmpl"
+  sc_value_file      = "${path.module}/sc.yml.tftpl"
   storage_class_name = "kafka-sc"
 }
 

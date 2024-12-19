@@ -43,3 +43,18 @@ variable "keycloak_host" {
   description = "keycloak host name"
   type        = string
 }
+
+variable "realm" {
+  description = "keycloak Realm Configurations"
+  type        = map(any)
+}
+
+variable "clients" {
+  description = "keycloak Clients Configuration"
+  type        = map(any)
+}
+
+variable "user_federations" {
+  description = "keycloak User Federations Configuration"
+  type        = map(any)
+}

@@ -7,7 +7,7 @@ locals {
   }
 
   flattened_keycloak_secrets_parameters = flatten([
-    for path, creds in local.grafana_secrets_parameters : [
+    for path, creds in local.keycloak_secrets_parameters : [
       for key, value in creds : {
         path  = path
         key   = key

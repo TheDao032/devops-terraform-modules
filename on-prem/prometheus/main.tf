@@ -34,7 +34,7 @@ locals {
     grafana = {
       ingress_route_name     = "grafana-ingressroute"
       middleware_annotations = "${var.namespace}-${var.grafana.ingress.strip_prefix}@kubernetescrd"
-      match_condition        = "Host(`${var.external_server_ip}`) && PathPrefix(`${var.grafana.ingress.prefix}`)"
+      match_condition        = "PathPrefix(`${var.grafana.ingress.prefix}`)"
       middlewares = [
         {
           name      = var.grafana.ingress.strip_prefix
@@ -54,7 +54,7 @@ locals {
     prometheus = {
       ingress_route_name     = "prometheus-ingressroute"
       middleware_annotations = "${var.namespace}-${var.prometheus.ingress.strip_prefix}@kubernetescrd"
-      match_condition        = "Host(`${var.external_server_ip}`) && PathPrefix(`${var.prometheus.ingress.prefix}`)"
+      match_condition        = "PathPrefix(`${var.prometheus.ingress.prefix}`)"
       middlewares = [
         {
           name      = var.prometheus.ingress.strip_prefix
@@ -73,7 +73,7 @@ locals {
     alertmanager = {
       ingress_route_name     = "alertmanager-ingressroute"
       middleware_annotations = "${var.namespace}-${var.alertmanager.ingress.strip_prefix}@kubernetescrd"
-      match_condition        = "Host(`${var.external_server_ip}`) && PathPrefix(`${var.alertmanager.ingress.prefix}`)"
+      match_condition        = "PathPrefix(`${var.alertmanager.ingress.prefix}`)"
       middlewares = [
         {
           name      = var.alertmanager.ingress.strip_prefix

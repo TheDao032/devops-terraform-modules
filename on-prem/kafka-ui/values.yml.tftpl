@@ -1,0 +1,36 @@
+image:
+  tag: ${image_tag}
+
+envs:
+  config:
+    SERVER_SERVLET_CONTEXT_PATH: ${keycloak.client_prefix}
+
+yamlApplicationConfig:
+  dynamic.config.enabled: true
+  kafka:
+    clusters:
+      - name: local
+        bootstrapServers: ${internal_bootstrap_server}:${internal_bootstrap_server_port}
+        properties:
+          sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username=${kafka_ui_conf.sasl_conf.client_username} password=${kafka_ui_conf.sasl_conf.client_password};
+          security.protocol: SASL_PLAINTEXT
+          sasl.mechanism: PLAIN
+
+  auth:
+    type: OAUTH2
+    oauth2:
+      client:
+        keycloak:
+          clientId: ${keycloak.client_id}
+          clientSecret: ${keycloak.client_secret}
+          scope: openid
+          issuer-uri: http://${keycloak.keycloak_host}/realms/${environment}
+          user-name-attribute: email
+          client-name: keycloak
+          provider: keycloak
+          custom-params:
+            type: keycloak
+            logoutUrl: http://${keycloak.keycloak_host}/realms/${environment}/protocol/openid-connect/logout
+  spring:
+    security:
+      oauth2:

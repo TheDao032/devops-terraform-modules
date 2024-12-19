@@ -7,5 +7,5 @@ metadata:
     storageclass.kubernetes.io/is-default-class: "false"
 provisioner: rancher.io/local-path
 volumeBindingMode: WaitForFirstConsumer
-reclaimPolicy: Retain # default value is Delete
+reclaimPolicy: Delete # default value is Delete
 allowVolumeExpansion: true

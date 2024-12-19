@@ -16,23 +16,17 @@ spec:
     - match: ${match_condition}
       kind: Rule
       middlewares:
+    - match: ${match_condition}
+      kind: Rule
+      middlewares:
       %{ for middl in middlewares ~}
-      %{ for k, v in middl ~}
-      %{ if k == "name" ~}
-      - ${k}: ${v}
-      %{ else ~}
-        ${k}: ${v}
-      %{ endif ~}
-      %{ endfor ~}
+  - name: ${middl.name}
+          namespace: ${middl.namespace}
       %{ endfor ~}
 
       services:
       %{ for service in services ~}
-      %{ for k, v in service ~}
-      %{ if k == "name" ~}
-      - ${k}: ${v}
-      %{ else ~}
-        ${k}: ${v}
-      %{ endif ~}
-      %{ endfor ~}
+  - name: ${service.name}
+          namespace: ${service.namespace}
+          port: ${service.port}
       %{ endfor ~}

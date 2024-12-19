@@ -3,47 +3,32 @@ locals {
   sc_value_file         = "${path.module}/sc.yml.tftpl"
   traefik_ingroute_file = "${path.module}/templates/ings/traefik_ingroute.yml.tftpl"
   traefik_middle_file   = "${path.module}/templates/middlewares/traefik_middle.yml.tftpl"
-  traefik_namespace     = "kube-system"
 
-  keycloak_middlewares = [
+  middleware_list = [
     {
-      name      = var.keycloak_conf.ingress.strip_prefix
-      namespace = var.namespace
-    },
-    # {
-    #   name      = var.keycloak_conf.admin_ingress.strip_prefix
-    #   namespace = var.namespace
-    # }
-  ]
-
-  middleware_list = {
-    keycloak = {
       name = var.keycloak_conf.ingress.strip_prefix
       prefixes = [
         "/keycloak"
       ]
       namespace = var.namespace
-    }
-
-    # keycloak_admin = {
+    },
+    # {
     #   name = var.keycloak_conf.admin_ingress.strip_prefix
     #   prefixes = [
     #     "/"
     #   ]
     #   namespace = var.namespace
     # }
-  }
+  ]
 
   ingressroute_list = {
     keycloak = {
       ingress_route_name = "keycloak-ingressroute"
       match_condition    = "Host(`${var.keycloak_host}`) && PathPrefix(`${var.keycloak_conf.ingress.prefix}`)"
-      middlewares = [
-        {
-          name      = var.keycloak_conf.ingress.strip_prefix
-          namespace = var.namespace
-        }
-      ]
+      middlewares = flatten([for middleware in local.middleware_list : {
+        name      = middleware.name
+        namespace = middleware.namespace
+      }])
       services = [
         {
           name      = var.helm_release_name
@@ -52,14 +37,14 @@ locals {
         }
       ]
       # middleware_annotations = "${var.namespace}-${var.keycloak_conf.ingress.strip_prefix}@kubernetescrd"
-      middleware_annotations = join(", ", [for middleware in local.keycloak_middlewares : "${var.namespace}-${middleware.name}@kubernetescrd"])
+      middleware_annotations = join(", ", [for middleware in local.middleware_list : "${var.namespace}-${middleware.name}@kubernetescrd"])
       namespace              = var.namespace
     }
 
     # admin_keycloak = {
     #   ingress_route_name = "keycloak-admin-ingressroute"
     #   match_condition    = "Host(`${var.keycloak_host}`)"
-    #   middlewares        = local.keycloak_middlewares
+    #   middlewares        = local.middleware_list
     #   services = [
     #     {
     #       name      = var.helm_release_name
@@ -68,7 +53,7 @@ locals {
     #     }
     #   ]
     #   # middleware_annotations = "${var.namespace}-${var.keycloak_conf.admin_ingress.strip_prefix}@kubernetescrd"
-    #   middleware_annotations = join(", ", [for middleware in local.keycloak_middlewares : "${var.namespace}-${middleware.name}@kubernetescrd"])
+    #   middleware_annotations = join(", ", [for middleware in local.middleware_list : "${var.namespace}-${middleware.name}@kubernetescrd"])
     #   namespace              = var.namespace
     # }
   }
@@ -94,9 +79,13 @@ resource "helm_release" "main" {
       templatefile(
         local.value_file,
         {
-          keycloak      = var.keycloak_conf
-          namespace     = var.namespace
-          keycloak_host = var.keycloak_host
+          environment      = var.environment
+          keycloak         = var.keycloak_conf
+          namespace        = var.namespace
+          keycloak_host    = var.keycloak_host
+          realm            = var.realm
+          clients          = var.clients
+          user_federations = var.user_federations
         },
       )
   ] : null)
@@ -105,13 +94,13 @@ resource "helm_release" "main" {
 }
 
 resource "kubectl_manifest" "traefik_middle" {
-  for_each = local.middleware_list
+  count = length(local.middleware_list)
 
   yaml_body = templatefile(local.traefik_middle_file,
     {
-      name      = each.value.name
-      prefixes  = each.value.prefixes
-      namespace = each.value.namespace
+      name      = local.middleware_list[count.index].name
+      prefixes  = local.middleware_list[count.index].prefixes
+      namespace = local.middleware_list[count.index].namespace
     }
   )
 

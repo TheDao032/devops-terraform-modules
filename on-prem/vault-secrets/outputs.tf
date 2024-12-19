@@ -23,6 +23,11 @@ output "keycloak_secrets" {
   sensitive = true
 }
 
+output "ldap_secrets" {
+  value     = local.ldap_secrets
+  sensitive = true
+}
+
 # output "database_paramaters" {
 #   value = local.database_secrets_parameters
 # }
