@@ -113,5 +113,5 @@ resource "kubectl_manifest" "loki_traefik_ingressroute" {
     }
   )
 
-  depends_on = [kubectl_manifest.traefik_middle]
+  depends_on = [kubectl_manifest.loki_traefik_middle]
 }
