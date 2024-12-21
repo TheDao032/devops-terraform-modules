@@ -8,7 +8,7 @@ locals {
     {
       name = var.keycloak_conf.ingress.strip_prefix
       prefixes = [
-        "/keycloak"
+        var.keycloak_conf.ingress.prefix
       ]
       namespace = var.namespace
     },
@@ -24,7 +24,7 @@ locals {
   ingressroute_list = {
     keycloak = {
       ingress_route_name = "keycloak-ingressroute"
-      match_condition    = "Host(`${var.keycloak_host}`) && PathPrefix(`${var.keycloak_conf.ingress.prefix}`)"
+      match_condition    = "PathPrefix(`${var.keycloak_conf.ingress.prefix}`)"
       middlewares = flatten([for middleware in local.middleware_list : {
         name      = middleware.name
         namespace = middleware.namespace
@@ -36,7 +36,6 @@ locals {
           namespace = var.namespace
         }
       ]
-      # middleware_annotations = "${var.namespace}-${var.keycloak_conf.ingress.strip_prefix}@kubernetescrd"
       middleware_annotations = join(", ", [for middleware in local.middleware_list : "${var.namespace}-${middleware.name}@kubernetescrd"])
       namespace              = var.namespace
     }
