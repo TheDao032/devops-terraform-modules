@@ -28,7 +28,7 @@ locals {
       services = [
         {
           name      = var.loki_helm_release_name
-          port      = 80
+          port      = 3100
           namespace = var.namespace
         }
       ]
