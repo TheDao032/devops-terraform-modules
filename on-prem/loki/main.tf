@@ -81,9 +81,12 @@ resource "helm_release" "alloy" {
         local.alloy_value_file,
         {
           alloy_conf = var.alloy_conf
+          loki_url   = "${var.loki_helm_release_name}-gateway.${var.namespace}.svc.cluster.local"
         }
       )
   ] : null)
+
+  depends_on = [helm_release.loki]
 }
 
 resource "kubectl_manifest" "loki_traefik_middle" {

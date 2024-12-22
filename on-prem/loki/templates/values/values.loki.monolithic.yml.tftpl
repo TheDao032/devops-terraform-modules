@@ -17,6 +17,8 @@ loki:
     volume_enabled: true
   ruler:
     enable_api: true
+  image:
+    tag: 2.9.3
 
 minio:
   enabled: true
@@ -54,7 +56,3 @@ bloomCompactor:
   replicas: 0
 bloomGateway:
   replicas: 0
-
-# gateway:
-#   service:
-#     type: LoadBalancer
