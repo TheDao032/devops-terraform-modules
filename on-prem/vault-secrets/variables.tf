@@ -48,6 +48,11 @@ variable "ldap" {
   default = {}
 }
 
+variable "query_service" {
+  type    = map(any)
+  default = {}
+}
+
 variable "global" {
   type    = map(any)
   default = {}

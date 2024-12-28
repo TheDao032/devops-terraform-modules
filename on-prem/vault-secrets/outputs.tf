@@ -28,6 +28,7 @@ output "ldap_secrets" {
   sensitive = true
 }
 
-# output "database_paramaters" {
-#   value = local.database_secrets_parameters
-# }
+output "query_service_secrets" {
+  value     = var.query_service
+  sensitive = true
+}
