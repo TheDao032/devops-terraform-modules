@@ -32,3 +32,7 @@ output "query_service_secrets" {
   value     = var.query_service
   sensitive = true
 }
+
+output "vault_mount_path" {
+  value = vault_mount.kv.path
+}

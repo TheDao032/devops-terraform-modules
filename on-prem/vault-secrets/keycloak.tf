@@ -57,13 +57,24 @@ resource "random_password" "keycloak_secrets" {
   }
 }
 
-resource "vault_generic_secret" "keycloak_secrets" {
-  for_each = local.keycloak_secrets
-  path     = "${vault_mount.kv.path}/${each.key}"
+resource "vault_kv_secret_v2" "keycloak_secrets" {
+  for_each     = local.keycloak_secrets
+  name         = each.key
+  mount        = vault_mount.kv.path
+  disable_read = true
 
   data_json = jsonencode(
     each.value
   )
-
-  depends_on = [vault_mount.kv]
 }
+
+# resource "vault_generic_secret" "keycloak_secrets" {
+#   for_each = local.keycloak_secrets
+#   path     = "${vault_mount.kv.path}/${each.key}"
+#
+#   data_json = jsonencode(
+#     each.value
+#   )
+#
+#   depends_on = [vault_mount.kv]
+# }

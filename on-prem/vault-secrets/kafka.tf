@@ -57,13 +57,24 @@ resource "random_password" "kafka_secrets" {
   }
 }
 
-resource "vault_generic_secret" "kafka_secrets" {
-  for_each = local.kafka_secrets
-  path     = "${vault_mount.kv.path}/${each.key}"
+resource "vault_kv_secret_v2" "kafka_secrets" {
+  for_each     = local.kafka_secrets
+  name         = each.key
+  mount        = vault_mount.kv.path
+  disable_read = true
 
   data_json = jsonencode(
     each.value
   )
-
-  depends_on = [vault_mount.kv]
 }
+
+# resource "vault_generic_secret" "kafka_secrets" {
+#   for_each = local.kafka_secrets
+#   path     = "${vault_mount.kv.path}/${each.key}"
+#
+#   data_json = jsonencode(
+#     each.value
+#   )
+#
+#   depends_on = [vault_mount.kv]
+# }

@@ -57,11 +57,22 @@ resource "random_password" "jenkins_secrets" {
   }
 }
 
-resource "vault_generic_secret" "jenkins_secrets" {
-  for_each = local.jenkins_secrets
-  path     = "${vault_mount.kv.path}/${each.key}"
+resource "vault_kv_secret_v2" "jenkins_secrets" {
+  for_each     = local.jenkins_secrets
+  name         = each.key
+  mount        = vault_mount.kv.path
+  disable_read = true
 
   data_json = jsonencode(
     each.value
   )
 }
+
+# resource "vault_generic_secret" "jenkins_secrets" {
+#   for_each = local.jenkins_secrets
+#   path     = "${vault_mount.kv.path}/${each.key}"
+#
+#   data_json = jsonencode(
+#     each.value
+#   )
+# }

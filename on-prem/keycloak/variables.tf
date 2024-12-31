@@ -34,6 +34,11 @@ variable "external_server_ip" {
   type        = string
 }
 
+variable "vault_mount_path" {
+  description = "Vault mount path"
+  type        = string
+}
+
 variable "keycloak_conf" {
   description = "keycloak configurations"
   type        = map(any)
@@ -57,4 +62,9 @@ variable "clients" {
 variable "user_federations" {
   description = "keycloak User Federations Configuration"
   type        = map(any)
+}
+
+variable "tags" {
+  type    = map(any)
+  default = {}
 }
