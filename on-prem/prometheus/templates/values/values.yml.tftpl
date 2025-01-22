@@ -1,0 +1,20 @@
+grafana:
+  grafana.ini:
+      server:
+        root_url: "%(protocol)s://%(domain)s:%(http_port)s${grafana.ingress.prefix}"
+  adminPassword: ${grafana.auth.password}
+  # additionalDataSources:
+  #   - name: Loki
+  #     access: proxy
+  #     isDefault: false
+  #     jsonData:
+  #       httpHeaderName1: X-Scope-OrgID
+  #     secureJsonData:
+  #       httpHeaderValue1: 1
+  #     orgId: 1
+  #     type: loki
+  #     url: http://${loki_url}:3100
+
+prometheus:
+  prometheusSpec:
+    externalUrl: //${prometheus.ingress.prefix}

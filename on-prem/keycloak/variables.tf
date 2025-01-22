@@ -49,6 +49,16 @@ variable "keycloak_host" {
   type        = string
 }
 
+variable "keycloak_params" {
+  description = "keycloak Vault Params"
+  type        = map(any)
+}
+
+variable "keycloak_kafkaui_creds" {
+  description = "keycloak KafkaUI Creds"
+  type        = map(any)
+}
+
 variable "realm" {
   description = "keycloak Realm Configurations"
   type        = map(any)

@@ -1,5 +1,5 @@
 locals {
-  value_file            = "${path.module}/values.yml.tftpl"
+  value_file            = "${path.module}/templates/values/values.yml.tftpl"
   traefik_ingroute_file = "${path.module}/templates/ings/traefik_ingroute.yml.tftpl"
   traefik_middle_file   = "${path.module}/templates/middlewares/traefik_middle.yml.tftpl"
   traefik_namespace     = "kube-system"

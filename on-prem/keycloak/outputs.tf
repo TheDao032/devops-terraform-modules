@@ -3,16 +3,12 @@ module "output" {
   environment      = var.environment
   vault_mount_path = var.vault_mount_path
   parameters = {
-    "keycloak/params" = {
-      host = "${var.keycloak_host}${var.keycloak_conf.ingress.prefix}"
-    }
-
-    "keycloak/kafka-ui/creds" = {
-      client_id     = var.clients.kafka_ui.id
-      client_secret = var.clients.kafka_ui.secret
-      client_name   = var.clients.kafka_ui.name
-      client_prefix = var.clients.kafka_ui.prefix
-    }
+    "keycloak/params" = merge(
+      var.keycloak_params,
+      {
+        host = "${var.keycloak_host}${var.keycloak_conf.ingress.prefix}"
+      }
+    )
   }
 
   tags = var.tags

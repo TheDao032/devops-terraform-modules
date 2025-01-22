@@ -10,6 +10,18 @@ sasl:
     passwords: ${sasl_conf.client.password}
 
 controller:
+  # Kafka resource requests and limits
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  # @param controller.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge). This is ignored if controller.resources is set (controller.resources is recommended for production).
+  # More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
+  resourcesPreset: "medium"
+  # resources:
+  #   requests:
+  #     cpu: 2
+  #     memory: 512Mi
+  #   limits:
+  #     cpu: 3
+  #     memory: 1024Mi
   replicaCount: ${controller_conf.replica_count}
   automountServiceAccountToken: true
   controllerOnly: false

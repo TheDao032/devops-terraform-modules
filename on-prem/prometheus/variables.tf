@@ -55,4 +55,5 @@ variable "external_server_ip" {
 variable "internal_loki_server" {
   description = "Internal Loki Server"
   type        = string
+  default     = ""
 }

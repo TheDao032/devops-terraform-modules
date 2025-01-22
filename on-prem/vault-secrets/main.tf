@@ -1,3 +1,38 @@
+locals {
+  # Extracts entries where the value contains `_RANDOM_`
+  secrets_parameters = {
+    for path, creds in var.secrets : path => {
+      for k, v in creds : k => v if contains(split(" ", v), "_RANDOM_")
+    } if length({ for k, v in creds : k => v if contains(split(" ", v), "_RANDOM_") }) > 0
+  }
+
+  flattened_secrets_parameters = flatten([
+    for path, creds in local.secrets_parameters : [
+      for key, value in creds : {
+        path  = path
+        key   = key
+        value = value
+      }
+    ]
+  ])
+
+  # Generate resolved secrets from random_password
+  secrets_resolve_parameters = {
+    for path, creds in local.secrets_parameters : path => {
+      for k, v in creds : k => random_password.secrets["${path}_${k}"].result
+    } if length({ for k, v in creds : k => v if contains(split(" ", v), "_RANDOM_") }) > 0
+  }
+
+  # Merge original `secrets` values with generated passwords
+  secrets = {
+    for path, creds in var.secrets : path => merge(
+      creds,
+      lookup(local.secrets_resolve_parameters, path, {})
+    )
+  }
+
+}
+
 resource "vault_mount" "kv" {
   path = var.environment
   type = "kv"
@@ -7,8 +42,22 @@ resource "vault_mount" "kv" {
   description = "KV Version 2 secret engine mount"
 }
 
-resource "vault_kv_secret_v2" "k3s" {
-  for_each     = var.k3s
+resource "random_password" "secrets" {
+  for_each = {
+    for secret in local.flattened_secrets_parameters :
+    "${secret.path}_${secret.key}" => secret
+  }
+
+  length           = regex("[0-9]+", each.value.value)
+  override_special = "!()-_=+"
+
+  lifecycle {
+    ignore_changes = [override_special]
+  }
+}
+
+resource "vault_kv_secret_v2" "secrets" {
+  for_each     = local.secrets
   name         = each.key
   mount        = vault_mount.kv.path
   disable_read = true
@@ -17,73 +66,3 @@ resource "vault_kv_secret_v2" "k3s" {
     each.value
   )
 }
-
-resource "vault_kv_secret_v2" "vault_secrets" {
-  for_each     = var.vault
-  name         = each.key
-  mount        = vault_mount.kv.path
-  disable_read = true
-
-  data_json = jsonencode(
-    each.value
-  )
-
-  depends_on = [vault_mount.kv]
-}
-
-resource "vault_kv_secret_v2" "global_secrets" {
-  for_each     = var.global
-  name         = each.key
-  mount        = vault_mount.kv.path
-  disable_read = true
-
-  data_json = jsonencode(
-    each.value
-  )
-
-  depends_on = [vault_mount.kv]
-}
-
-# resource "vault_generic_secret" "k3s" {
-#   for_each = var.k3s
-#   path     = "${vault_mount.kv.path}/${each.key}"
-#
-#   data_json = jsonencode(
-#     each.value
-#   )
-# }
-#
-# resource "vault_generic_secret" "vault_secrets" {
-#   for_each = var.vault
-#   path     = "${vault_mount.kv.path}/${each.key}"
-#
-#   data_json = jsonencode(
-#     each.value
-#   )
-#
-#   depends_on = [vault_mount.kv]
-# }
-#
-# resource "vault_generic_secret" "global_secrets" {
-#   for_each = var.global
-#   path     = "${vault_mount.kv.path}/${each.key}"
-#
-#   data_json = jsonencode(
-#     each.value
-#   )
-#
-#   depends_on = [vault_mount.kv]
-# }
-
-# resource "vault_generic_secret" "psql_server_secrets" {
-#   path = "${vault_mount.kv.path}/psql_server"
-#
-#   data_json = jsonencode(
-#     {
-#       "conn-pool"    = "${var.psql_vms.conn-pool}",
-#       "coordinator1" = "${var.psql_vms.coordinator1}",
-#       "worker1"      = "${var.psql_vms.worker1}",
-#       "worker2"      = "${var.psql_vms.worker2}",
-#     }
-#   )
-# }
