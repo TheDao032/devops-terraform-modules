@@ -112,7 +112,6 @@ resource "helm_release" "main" {
           grafana            = var.grafana,
           external_server_ip = var.external_server_ip
           loki_url           = var.internal_loki_server
-
         },
       )
   ] : null)
