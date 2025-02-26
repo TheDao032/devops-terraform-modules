@@ -47,7 +47,25 @@ variable "alloy_chart_version" {
   default     = "30.1.5"
 }
 
-variable "loki_conf" {
+variable "common_conf" {
+  description = "Loki Conf Data"
+  type        = map(any)
+  default     = {}
+}
+
+variable "microservice_conf" {
+  description = "Loki Conf Data"
+  type        = map(any)
+  default     = {}
+}
+
+variable "monolithic_conf" {
+  description = "Loki Conf Data"
+  type        = map(any)
+  default     = {}
+}
+
+variable "scalable_conf" {
   description = "Loki Conf Data"
   type        = map(any)
   default     = {}

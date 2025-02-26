@@ -1,8 +1,10 @@
 locals {
-  loki_value_file         = "${path.module}/templates/values/values.loki.monolithic.yml.tftpl"
-  alloy_value_file        = "${path.module}/templates/values/values.alloy.yml.tftpl"
-  loki_sc_value_file      = "${path.module}/templates/storage-classes/sc.loki.yml.tftpl"
-  loki_storage_class_name = "loki-sc"
+  monolithic_loki_value_file   = "${path.module}/templates/values/values.loki.monolithic.yml.tftpl"
+  microservice_loki_value_file = "${path.module}/templates/values/values.loki.microservice.yml.tftpl"
+  scalable_loki_value_file     = "${path.module}/templates/values/values.loki.scalable.yml.tftpl"
+  alloy_value_file             = "${path.module}/templates/values/values.alloy.yml.tftpl"
+  loki_sc_value_file           = "${path.module}/templates/storage-classes/sc.loki.yml.tftpl"
+  loki_storage_class_name      = "loki-sc"
 
   traefik_ingroute_file = "${path.module}/templates/ings/traefik_ingroute.yml.tftpl"
   traefik_middle_file   = "${path.module}/templates/middlewares/traefik_middle.yml.tftpl"
@@ -45,7 +47,7 @@ resource "kubectl_manifest" "loki_storage_class" {
   })
 }
 
-resource "helm_release" "loki" {
+resource "helm_release" "microservice_loki" {
   name             = var.loki_helm_release_name
   namespace        = var.namespace
   repository       = var.helm_repository
@@ -58,7 +60,7 @@ resource "helm_release" "loki" {
       templatefile(
         local.loki_value_file,
         {
-          loki_conf     = var.loki_conf
+          loki_conf     = var.microservice_conf
           storage_class = local.loki_storage_class_name
         }
       )
@@ -66,6 +68,50 @@ resource "helm_release" "loki" {
 
   depends_on = [kubectl_manifest.loki_storage_class]
 }
+
+# resource "helm_release" "monolithic_loki" {
+#   name             = var.loki_helm_release_name
+#   namespace        = var.namespace
+#   repository       = var.helm_repository
+#   version          = var.loki_chart_version
+#   chart            = var.loki_helm_release_chart
+#   create_namespace = true
+#   upgrade_install  = true
+#   values = (fileexists(local.loki_value_file) ?
+#     [
+#       templatefile(
+#         local.loki_value_file,
+#         {
+#           loki_conf     = var.monolithic_conf
+#           storage_class = local.loki_storage_class_name
+#         }
+#       )
+#   ] : null)
+#
+#   depends_on = [kubectl_manifest.loki_storage_class]
+# }
+#
+# resource "helm_release" "scalable_loki" {
+#   name             = var.loki_helm_release_name
+#   namespace        = var.namespace
+#   repository       = var.helm_repository
+#   version          = var.loki_chart_version
+#   chart            = var.loki_helm_release_chart
+#   create_namespace = true
+#   upgrade_install  = true
+#   values = (fileexists(local.loki_value_file) ?
+#     [
+#       templatefile(
+#         local.loki_value_file,
+#         {
+#           loki_conf     = var.scalable_conf
+#           storage_class = local.loki_storage_class_name
+#         }
+#       )
+#   ] : null)
+#
+#   depends_on = [kubectl_manifest.loki_storage_class]
+# }
 
 resource "helm_release" "alloy" {
   name             = var.alloy_helm_release_name
@@ -86,7 +132,7 @@ resource "helm_release" "alloy" {
       )
   ] : null)
 
-  depends_on = [helm_release.loki]
+  depends_on = [helm_release.microservice_loki]
 }
 
 resource "kubectl_manifest" "loki_traefik_middle" {
