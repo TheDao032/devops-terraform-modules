@@ -44,11 +44,11 @@ indexGateway:
   maxUnavailable: ${loki_conf.index_gateway.max_unavailable}
 
 bloomPlanner:
-  replicas: ${loki_conf.bloom_planner.max_unavailable}
+  replicas: ${loki_conf.bloom_planner.replicas}
 bloomBuilder:
-  replicas: ${loki_conf.bloom_builder.max_unavailable}
+  replicas: ${loki_conf.bloom_builder.replicas}
 bloomGateway:
-  replicas: ${loki_conf.bloom_gateway.max_unavailable}
+  replicas: ${loki_conf.bloom_gateway.replicas}
 
 singleBinary:
    replicas: ${loki_conf.single_binary.replicas}
