@@ -130,6 +130,7 @@ resource "helm_release" "alloy" {
           alloy_conf     = var.alloy_conf
           loki_auth_conf = var.auth_conf
           loki_url       = "${var.loki_helm_release_name}-distributor.${var.namespace}.svc.cluster.local:3100"
+          cluster_name   = var.cluster_name
         }
       )
   ] : null)

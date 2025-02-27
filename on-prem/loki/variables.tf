@@ -4,6 +4,12 @@ variable "namespace" {
   default     = "default"
 }
 
+variable "cluster_name" {
+  description = "Cluster's name"
+  type        = string
+  default     = "local"
+}
+
 variable "helm_repository" {
   description = "Repository of Kafka"
   type        = string
