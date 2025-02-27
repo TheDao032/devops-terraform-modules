@@ -11,9 +11,9 @@ locals {
 
   middleware_list = [
     {
-      name = var.loki_conf.loki_ingress.strip_prefix
+      name = var.common_conf.ingress.strip_prefix
       prefixes = [
-        var.loki_conf.loki_ingress.prefix
+        var.common_conf.ingress.prefix
       ]
       namespace = var.namespace
     },
@@ -22,7 +22,7 @@ locals {
   ingressroute_list = {
     loki = {
       ingress_route_name = "loki-ingressroute"
-      match_condition    = "PathPrefix(`${var.loki_conf.loki_ingress.prefix}`)"
+      match_condition    = "PathPrefix(`${var.common_conf.ingress.prefix}`)"
       middlewares = flatten([for middleware in local.middleware_list : {
         name      = middleware.name
         namespace = middleware.namespace

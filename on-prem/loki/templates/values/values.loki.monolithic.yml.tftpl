@@ -54,3 +54,21 @@ bloomCompactor:
   replicas: 0
 bloomGateway:
   replicas: 0
+
+memcached:
+  resources:
+    requests:
+      memory: ${loki_conf.memcached.rq_mem}
+      cpu: ${loki_conf.memcached.rq_cpu}
+    limits:
+      memory: ${loki_conf.memcached.limits_mem}
+      cpu: ${loki_conf.memcached.limits_cpu}
+
+memcachedExporter:
+  resources:
+    requests:
+      memory: ${loki_conf.memcached_exporter.rq_mem}
+      cpu: ${loki_conf.memcached_exporter.rq_cpu}
+    limits:
+      memory: ${loki_conf.memcached_exporter.limits_mem}
+      cpu: ${loki_conf.memcached_exporter.limits_cpu}
