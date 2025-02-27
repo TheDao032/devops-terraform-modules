@@ -72,9 +72,11 @@ minio:
   persistence:
     storageClass: ${storage_class}
 
-# gateway:
-#   service:
-#     type: LoadBalancer
+gateway:
+  basicAuth:
+    enabled: true
+    username: ${auth_conf.username}
+    password: ${auth_conf.password}
 
 memcached:
   resources:

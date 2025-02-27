@@ -71,6 +71,12 @@ variable "scalable_conf" {
   default     = {}
 }
 
+variable "auth_conf" {
+  description = "alloy Conf Data"
+  type        = map(any)
+  default     = {}
+}
+
 variable "alloy_conf" {
   description = "alloy Conf Data"
   type        = map(any)

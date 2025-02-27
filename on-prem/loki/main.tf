@@ -61,6 +61,7 @@ resource "helm_release" "microservice_loki" {
         local.microservice_loki_value_file,
         {
           loki_conf     = var.microservice_conf
+          auth_conf     = var.auth_conf
           storage_class = local.loki_storage_class_name
         }
       )
@@ -126,8 +127,9 @@ resource "helm_release" "alloy" {
       templatefile(
         local.alloy_value_file,
         {
-          alloy_conf = var.alloy_conf
-          loki_url   = "${var.loki_helm_release_name}-gateway.${var.namespace}.svc.cluster.local"
+          alloy_conf     = var.alloy_conf
+          loki_auth_conf = var.auth_conf
+          loki_url       = "${var.loki_helm_release_name}-gateway.${var.namespace}.svc.cluster.local"
         }
       )
   ] : null)
