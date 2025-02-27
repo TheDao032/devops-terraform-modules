@@ -74,7 +74,7 @@ minio:
 
 gateway:
   basicAuth:
-    enabled: true
+    enabled: ${auth_conf.is_enabled}
     username: ${auth_conf.username}
     password: ${auth_conf.password}
 
