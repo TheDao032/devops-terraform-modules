@@ -28,20 +28,20 @@ ingester:
 
 querier:
   replicas: ${loki_conf.querier.replicas}
-  maxUnavailable: ${loki_conf.querier.maxUnavailable}
+  maxUnavailable: ${loki_conf.querier.max_unavailable}
 queryFrontend:
   replicas: ${loki_conf.query_frontend.replicas}
-  maxUnavailable: ${loki_conf.query_frontend.maxUnavailable}
+  maxUnavailable: ${loki_conf.query_frontend.max_unavailable}
 queryScheduler:
   replicas: ${loki_conf.query_scheduler.replicas}
 distributor:
   replicas: ${loki_conf.distributor.replicas}
-  maxUnavailable: ${loki_conf.distributor.maxUnavailable}
+  maxUnavailable: ${loki_conf.distributor.max_unavailable}
 compactor:
   replicas: ${loki_conf.compactor.replicas}
 indexGateway:
   replicas: ${loki_conf.index_gateway.replicas}
-  maxUnavailable: ${loki_conf.index_gateway.maxUnavailable}
+  maxUnavailable: ${loki_conf.index_gateway.max_unavailable}
 
 bloomPlanner:
   replicas: ${loki_conf.bloom_planner.max_unavailable}
