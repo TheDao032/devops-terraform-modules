@@ -55,10 +55,10 @@ resource "helm_release" "microservice_loki" {
   chart            = var.loki_helm_release_chart
   create_namespace = true
   upgrade_install  = true
-  values = (fileexists(local.loki_value_file) ?
+  values = (fileexists(local.microservice_loki_value_file) ?
     [
       templatefile(
-        local.loki_value_file,
+        local.microservice_loki_value_file,
         {
           loki_conf     = var.microservice_conf
           storage_class = local.loki_storage_class_name
@@ -77,10 +77,10 @@ resource "helm_release" "microservice_loki" {
 #   chart            = var.loki_helm_release_chart
 #   create_namespace = true
 #   upgrade_install  = true
-#   values = (fileexists(local.loki_value_file) ?
+#   values = (fileexists(local.monolithic_loki_value_file) ?
 #     [
 #       templatefile(
-#         local.loki_value_file,
+#         local.monolithic_loki_value_file,
 #         {
 #           loki_conf     = var.monolithic_conf
 #           storage_class = local.loki_storage_class_name
@@ -99,10 +99,10 @@ resource "helm_release" "microservice_loki" {
 #   chart            = var.loki_helm_release_chart
 #   create_namespace = true
 #   upgrade_install  = true
-#   values = (fileexists(local.loki_value_file) ?
+#   values = (fileexists(local.scalable_loki_value_file) ?
 #     [
 #       templatefile(
-#         local.loki_value_file,
+#         local.scalable_loki_value_file,
 #         {
 #           loki_conf     = var.scalable_conf
 #           storage_class = local.loki_storage_class_name
@@ -146,7 +146,7 @@ resource "kubectl_manifest" "loki_traefik_middle" {
     }
   )
 
-  depends_on = [helm_release.loki]
+  depends_on = [helm_release.microservice_loki]
 }
 
 resource "kubectl_manifest" "loki_traefik_ingressroute" {
