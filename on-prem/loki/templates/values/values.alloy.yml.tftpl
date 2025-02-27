@@ -17,7 +17,7 @@ alloy:
 
       loki.write "endpoint" {
         endpoint {
-            url = "http://${loki_url}:80/loki/api/v1/push"
+            url = "http://${loki_url}/loki/api/v1/push"
             %{ if loki_auth_conf.is_enabled }
             basic_auth {
               username = "${loki_auth_conf.username}"
