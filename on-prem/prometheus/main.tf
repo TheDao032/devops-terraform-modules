@@ -115,6 +115,12 @@ resource "helm_release" "main" {
         },
       )
   ] : null)
+
+  timeouts {
+    create = "30m"
+    update = "30m"
+    delete = "30m"
+  }
 }
 
 resource "kubectl_manifest" "traefik_middle" {
