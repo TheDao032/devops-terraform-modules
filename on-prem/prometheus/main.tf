@@ -116,10 +116,9 @@ resource "helm_release" "main" {
       )
   ] : null)
 
-  timeouts {
-    create = "30m"
-    update = "30m"
-    delete = "30m"
+  set {
+    name  = "timeout"
+    value = "1800" # 1800 seconds = 30 minutes
   }
 }
 
