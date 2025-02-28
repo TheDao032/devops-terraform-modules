@@ -18,12 +18,12 @@ alloy:
       loki.write "endpoint" {
         endpoint {
           url = "http://${loki_url}/loki/api/v1/push"
-          headers {
-            "X-Scope-OrgID" = "1"
+          headers = {
+            X-Scope-OrgID = "1"
           }
           tenant_id = "1"
           %{ if loki_auth_conf.is_enabled }
-          basic_auth {
+          basic_auth = {
             username = "${loki_auth_conf.username}"
             password = "${loki_auth_conf.password}"
           }
