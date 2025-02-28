@@ -18,8 +18,9 @@ alloy:
       loki.write "endpoint" {
         endpoint {
             url = "http://${loki_url}/loki/api/v1/push"
+            tenant_id = "1"
             headers {
-              X-Scope-OrgID = "1"
+              "X-Scope-OrgID" = "1"
             }
             %{ if loki_auth_conf.is_enabled }
             basic_auth {
