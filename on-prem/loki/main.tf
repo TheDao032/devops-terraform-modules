@@ -68,6 +68,11 @@ resource "helm_release" "microservice_loki" {
       )
   ] : null)
 
+  set {
+    name  = "timeout"
+    value = "1800" # 1800 seconds = 30 minutes
+  }
+
   depends_on = [kubectl_manifest.loki_storage_class]
 }
 
@@ -136,6 +141,10 @@ resource "helm_release" "alloy" {
       )
   ] : null)
 
+  set {
+    name  = "timeout"
+    value = "1800" # 1800 seconds = 30 minutes
+  }
   depends_on = [helm_release.microservice_loki]
 }
 
