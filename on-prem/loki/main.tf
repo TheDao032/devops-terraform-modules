@@ -60,6 +60,7 @@ resource "helm_release" "microservice_loki" {
       templatefile(
         local.microservice_loki_value_file,
         {
+          common_conf   = var.common_conf
           loki_conf     = var.microservice_conf
           auth_conf     = var.auth_conf
           storage_class = local.loki_storage_class_name
