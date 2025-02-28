@@ -21,7 +21,6 @@ alloy:
             headers {
               X-Scope-OrgID = "1"
             }
-            tenant_id = "1"
             %{ if loki_auth_conf.is_enabled }
             basic_auth {
               username = "${loki_auth_conf.username}"
@@ -29,6 +28,7 @@ alloy:
             }
             %{ endif }
         }
+        tenant_id = "1"
 
       }
 
