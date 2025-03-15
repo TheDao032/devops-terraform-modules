@@ -1,0 +1,12 @@
+nginx:
+  image:
+    # -- The NGINX image to use.
+    repository: ghcr.io/nginx/nginx-gateway-fabric/nginx
+    tag: ${gateway_fabric.image.tag}
+    # @schema
+    # enum:
+    #   - Always
+    #   - IfNotPresent
+    #   - Never
+    # @schema
+    pullPolicy: IfNotPresent
