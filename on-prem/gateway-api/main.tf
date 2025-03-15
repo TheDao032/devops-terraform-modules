@@ -3,24 +3,24 @@ locals {
     "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml",
   ])
 
-  # flattened_gateway_api_crds_raw = flatten([
-  #   for path, creds in local.secrets_parameters : [
-  #     for key, value in creds : {
-  #       path  = path
-  #       key   = key
-  #       value = value
-  #     }
-  #   ]
-  # ])
+  # Convert the list of YAML documents into a map for proper iteration
+  crds_map = { for k, docs in data.kubectl_file_documents.crds : k => docs.documents }
 }
 
-data "http" "gateway_api_crds_raw" {
+data "http" "crds" {
   for_each = local.gateway_api_manifests
   url      = each.key
 }
 
-# resource "kubectl_manifest" "storage_class" {
-#   yaml_body = templatefile(local.traefik_gateway_class_file, {
-#     gateway_class_name = local.traefik_gateway_class_name
-#   })
-# }
+# Split multi-document YAML into individual manifests for each URL
+data "kubectl_file_documents" "crds" {
+  for_each = data.http.crds
+  content  = each.value.response_body
+}
+
+
+# Apply each CRD document
+resource "kubectl_manifest" "gateway_api_crds" {
+  for_each  = { for idx, doc in flatten(values(local.crds_map)) : idx => doc }
+  yaml_body = each.value
+}
