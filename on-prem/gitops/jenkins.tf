@@ -9,7 +9,7 @@ locals {
 resource "kubectl_manifest" "storage_class" {
   yaml_body = templatefile(local.sc_value_file, {
     storage_class_name = local.storage_class_name
-    namespace          = var.namespace
+    namespace          = local.chart_info.namespace
   })
 }
 

@@ -1,3 +1,7 @@
+variable "environment" {
+  type = string
+}
+
 variable "jenkins_conf" {
   description = "Plugins list for Jenkins values"
   type = map(any)
@@ -9,4 +13,3 @@ variable "argocd_conf" {
   type = map(any)
   default = {}
 }
-
