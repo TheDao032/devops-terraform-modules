@@ -1,6 +1,6 @@
 locals {
-  value_file   = "${path.module}/argocd/templates/values/values.yml.tftpl"
-  argocd_chart = var.argocd_conf.chart_info
+  argocd_value_file = "${path.module}/argocd/templates/values/values.yml.tftpl"
+  argocd_chart      = var.argocd_conf.chart_info
 }
 
 resource "helm_release" "argocd" {
@@ -11,13 +11,11 @@ resource "helm_release" "argocd" {
   chart            = local.argocd_chart.helm_release_chart
   create_namespace = true
   upgrade_install  = true
-  values = (fileexists(local.value_file) ?
+  values = (fileexists(local.argocd_value_file) ?
     [
       templatefile(
-        local.value_file,
-        merge(
-          var.parameters, {},
-        )
+        local.argocd_value_file,
+        {},
       )
   ] : null)
 }

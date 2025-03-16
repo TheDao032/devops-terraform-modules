@@ -1,14 +1,14 @@
 locals {
-  value_file         = "${path.module}/jenkins/templates/values/values.yml.tmpl"
-  sc_value_file      = "${path.module}/jenkins/templates/storage-classes/sc.yml.tmpl"
-  storage_class_name = "jenkins-sc"
+  jenkins_value_file = "${path.module}/jenkins/templates/values/values.yml.tmpl"
+  jenkins_sc_file    = "${path.module}/jenkins/templates/storage-classes/sc.yml.tmpl"
+  jenkins_sc_name    = "jenkins-sc"
 
   jenkins_chart = var.jenkins_conf.chart_info
 }
 
-resource "kubectl_manifest" "storage_class" {
-  yaml_body = templatefile(local.sc_value_file, {
-    storage_class_name = local.storage_class_name
+resource "kubectl_manifest" "jenkins_sc" {
+  yaml_body = templatefile(local.jenkins_sc_file, {
+    storage_class_name = local.jenkins_sc_name
     namespace          = local.chart_info.namespace
   })
 }
@@ -21,10 +21,10 @@ resource "helm_release" "jenkins" {
   chart            = local.jenkins_chart.helm_release_chart
   create_namespace = true
   upgrade_install  = true
-  values = (fileexists(local.value_file) ?
+  values = (fileexists(local.jenkins_value_file) ?
     [
       templatefile(
-        local.value_file,
+        local.jenkins_value_file,
         merge(
           var.jenkins_conf.parameters,
           {
