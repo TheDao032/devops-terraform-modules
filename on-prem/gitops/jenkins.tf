@@ -1,6 +1,6 @@
 locals {
-  jenkins_value_file = "${path.module}/jenkins/templates/values/values.yml.tmpl"
-  jenkins_sc_file    = "${path.module}/jenkins/templates/storage-classes/sc.yml.tmpl"
+  jenkins_value_file = "${path.module}/jenkins/templates/values/values.yml.tftpl"
+  jenkins_sc_file    = "${path.module}/jenkins/templates/storage-classes/sc.yml.tftpl"
   jenkins_sc_name    = "jenkins-sc"
 
   jenkins_chart = var.jenkins_conf.chart_info
