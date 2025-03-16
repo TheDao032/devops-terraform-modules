@@ -9,7 +9,7 @@ locals {
 resource "kubectl_manifest" "jenkins_sc" {
   yaml_body = templatefile(local.jenkins_sc_file, {
     storage_class_name = local.jenkins_sc_name
-    namespace          = local.chart_info.namespace
+    namespace          = local.jenkins_chart.namespace
   })
 }
 
@@ -28,13 +28,13 @@ resource "helm_release" "jenkins" {
         merge(
           var.jenkins_conf.parameters,
           {
-            jenkins_version    = local.chart_info.image_tag,
+            jenkins_version    = local.jenkins_chart.image_tag,
             jenkins_plugins    = var.jenkins_conf.plugins
-            storage_class_name = local.storage_class_name
+            storage_class_name = local.jenkins_sc_name
           },
         )
       )
   ] : null)
 
-  depends_on = [kubectl_manifest.storage_class]
+  depends_on = [kubectl_manifest.jenkins_sc]
 }
