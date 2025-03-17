@@ -24,10 +24,10 @@ module "jenkins" {
   source        = "../helm"
   enabled       = 0
   environment   = var.environment
-  name          = var.jenkins_helm.release_name
-  namespace     = var.jenkins_helm.namespace
-  repository    = var.jenkins_helm.repository
-  chart_version = var.jenkins_helm.chart_version
+  name          = local.jenkins_helm.release_name
+  namespace     = local.jenkins_helm.namespace
+  repository    = local.jenkins_helm.repository
+  chart_version = local.jenkins_helm.chart_version
   tags          = var.tags
   parameters = {
     values  = local.jenkins_values
