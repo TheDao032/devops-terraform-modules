@@ -15,10 +15,6 @@ variable "environment" {
   type = string
 }
 
-variable "namespace" {
-  type = string
-}
-
 variable "traefik_conf" {
   description = "alloy Conf Data"
   type        = map(any)
