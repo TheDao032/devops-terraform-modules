@@ -12,7 +12,7 @@ resource "helm_release" "main" {
   repository       = var.repository
   version          = var.chart_version
   namespace        = var.namespace
-  chart            = local.chart
+  chart            = coalesce(local.chart, var.name)
   create_namespace = true
   upgrade_install  = true
   values = (fileexists(local.value_file) ?
