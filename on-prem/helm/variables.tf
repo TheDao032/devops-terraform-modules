@@ -2,6 +2,10 @@ variable "environment" {
   type = string
 }
 
+variable "namespace" {
+  type = string
+}
+
 variable "enabled" {
   type    = number
   default = 1
@@ -12,11 +16,15 @@ variable "chart" {
   default = null
 }
 
-variable "namespace" {
+variable "name" {
   type = string
 }
 
-variable "name" {
+variable "repository" {
+  type = string
+}
+
+variable "chart_version" {
   type = string
 }
 
