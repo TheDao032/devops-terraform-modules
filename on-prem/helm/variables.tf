@@ -8,7 +8,8 @@ variable "enabled" {
 }
 
 variable "chart" {
-  type = string
+  type    = string
+  default = null
 }
 
 variable "namespace" {
