@@ -1,5 +1,5 @@
 locals {
-  traefik_gateway_class_file            = "${path.module}/traefik/gateway-classes/traefik_class.yml.tftpl"
+  traefik_gateway_class_file            = "${path.module}/traefik/gc/traefik_gc.yml.tftpl"
   traefik_dashboard_ingroute_value_file = "${path.module}/traefik/ings/dashboard_ingroute.yml.tftpl"
   traefik_gc_name                       = "traefik"
 
