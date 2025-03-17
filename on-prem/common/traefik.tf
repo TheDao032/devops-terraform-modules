@@ -1,6 +1,6 @@
 locals {
-  traefik_gateway_class_file            = "${path.module}/traefik/gc/traefik_gc.yml.tftpl"
-  traefik_dashboard_ingroute_value_file = "${path.module}/traefik/ings/dashboard_ingroute.yml.tftpl"
+  traefik_gc_file                       = "${path.module}/templates/traefik/gc/traefik_gc.yml.tftpl"
+  traefik_dashboard_ingroute_value_file = "${path.module}/templates/traefik/ings/dashboard_ingroute.yml.tftpl"
   traefik_gc_name                       = "traefik"
 
   # traefik_dashboard_svc_value_file      = ""
@@ -34,13 +34,13 @@ resource "kubectl_manifest" "traefik_dashboard_ingroute" {
     local.traefik_dashboard_ingroute_value_file,
     {
       ingress_route_name = var.traefik_dashboard_ingroute_name
-      namespace          = var.namespace
+      namespace          = var.traefik_conf.namespace
     }
   )
 }
 
 resource "kubectl_manifest" "gateway_class" {
-  yaml_body = templatefile(local.traefik_gateway_class_file, {
+  yaml_body = templatefile(local.traefik_gc_file, {
     gateway_class_name = local.traefik_gc_name
   })
 }
