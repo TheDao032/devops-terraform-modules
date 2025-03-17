@@ -8,7 +8,7 @@ locals {
 
 resource "helm_release" "main" {
   count            = var.enabled
-  name             = var.release_name
+  name             = var.name
   repository       = var.repository
   version          = var.chart_version
   namespace        = var.namespace
