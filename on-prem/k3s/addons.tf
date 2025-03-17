@@ -14,6 +14,7 @@ module "argocd" {
   namespace     = local.argocd_helm.namespace
   repository    = local.argocd_helm.repository
   chart_version = local.argocd_helm.chart_version
+  chart         = null
   tags          = var.tags
   parameters = {
     values = local.argocd_values
@@ -28,6 +29,7 @@ module "jenkins" {
   namespace     = local.jenkins_helm.namespace
   repository    = local.jenkins_helm.repository
   chart_version = local.jenkins_helm.chart_version
+  chart         = null
   tags          = var.tags
   parameters = {
     values  = local.jenkins_values
