@@ -1,0 +1,26 @@
+apiVersion: gateway-operator.konghq.com/v1beta1
+kind: GatewayConfiguration
+metadata:
+  name: kong
+  namespace: default
+spec:
+  dataPlaneOptions:
+    deployment:
+      podTemplateSpec:
+        spec:
+          containers:
+          - name: proxy
+            image: kong:3.9.0
+            readinessProbe:
+              initialDelaySeconds: 1
+              periodSeconds: 1
+  controlPlaneOptions:
+    deployment:
+      podTemplateSpec:
+        spec:
+          containers:
+          - name: controller
+            image: kong/kubernetes-ingress-controller:3.4.3
+            env:
+            - name: CONTROLLER_LOG_LEVEL
+              value: debug

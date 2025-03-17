@@ -1,0 +1,9 @@
+image:
+  repository: docker.io/kong/gateway-operator
+  tag: "1.4"
+
+kubernetes-configuration-crds:
+  enabled: true
+
+env:
+  ENABLE_CONTROLLER_KONNECT: true

@@ -15,7 +15,7 @@ module "argocd" {
   repository    = local.argocd_helm.repository
   chart_version = local.argocd_helm.chart_version
   # chart         = null
-  tags          = var.tags
+  tags = var.tags
   parameters = {
     values = local.argocd_values
   }
@@ -30,7 +30,7 @@ module "jenkins" {
   repository    = local.jenkins_helm.repository
   chart_version = local.jenkins_helm.chart_version
   # chart         = null
-  tags          = var.tags
+  tags = var.tags
   parameters = {
     values  = local.jenkins_values
     plugins = local.jenkins_plugins

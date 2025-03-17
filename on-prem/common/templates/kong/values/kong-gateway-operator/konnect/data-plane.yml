@@ -1,0 +1,19 @@
+apiVersion: gateway-operator.konghq.com/v1beta1
+kind: DataPlane
+metadata:
+ name: dataplane
+ namespace: kong
+spec:
+ extensions:
+ - kind: KonnectExtension
+   name: konnect-config
+   group: gateway-operator.konghq.com
+ deployment:
+   podTemplateSpec:
+     spec:
+       containers:
+       - name: proxy
+         image: kong/kong-gateway:3.9.0.1
+         env:
+         - name: KONG_LOG_LEVEL
+           value: debug

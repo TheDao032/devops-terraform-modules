@@ -1,0 +1,14 @@
+apiVersion: gateway-operator.konghq.com/v1alpha1
+kind: KonnectExtension
+metadata:
+  name: konnect-config
+  namespace: kong
+spec:
+  controlPlaneRef:
+    type: konnectID
+    konnectID: a110f5e97d
+  controlPlaneRegion: US
+  serverHostname: k3d-local-server-0
+  konnectControlPlaneAPIAuthConfiguration:
+    clusterCertificateSecretRef:
+      name: konnect-client-tls
