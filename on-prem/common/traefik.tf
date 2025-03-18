@@ -47,7 +47,7 @@ resource "kubectl_manifest" "gateway_class" {
 
 resource "kubectl_manifest" "traefik_dashboard_gateway_api" {
   yaml_body = templatefile(
-    local.traefik_dashboard_ingroute_value_file,
+    local.traefik_dashboard_gateway_api_file,
     {
       gateway_class_name = local.traefik_gc_name
       namespace          = var.traefik_conf.namespace
