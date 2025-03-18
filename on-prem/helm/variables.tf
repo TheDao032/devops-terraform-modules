@@ -41,7 +41,7 @@ variable "tags" {
 }
 
 
-variable "kube_host" {
+variable "host" {
   type = string
 }
 
