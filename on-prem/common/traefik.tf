@@ -47,7 +47,7 @@ resource "kubectl_manifest" "gateway_class" {
   })
 }
 
-resource "kubectl_manifest" "gateway_class" {
+resource "kubectl_manifest" "gateway" {
   yaml_body = templatefile(local.traefik_gw_file, {
     namespace          = var.traefik_conf.namespace
     gateway_class_name = local.traefik_gc_name
