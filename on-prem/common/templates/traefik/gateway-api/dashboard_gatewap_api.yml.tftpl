@@ -9,15 +9,16 @@ spec:
     - name: ${gateway_class_name}
       sectionName: http
       kind: Gateway
-
+  hostnames:
+    - "*"
   rules:
     - matches:
-      - path:
-          type: PathPrefix
-          value: /dashboard
-      - path:
-          type: PathPrefix
-          value: /api
-    backendRefs:
-      - name: traefik
-        port: 9000
+        - path:
+            type: PathPrefix
+            value: /dashboard
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: traefik
+          port: 9000
