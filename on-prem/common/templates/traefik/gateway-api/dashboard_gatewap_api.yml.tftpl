@@ -6,7 +6,7 @@ metadata:
   namespace: ${namespace}
 spec:
   parentRefs:
-    - name: traefik
+    - name: ${gateway_class_name}
       sectionName: http
       kind: Gateway
 

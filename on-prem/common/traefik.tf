@@ -49,6 +49,7 @@ resource "kubectl_manifest" "traefik_dashboard_gateway_api" {
   yaml_body = templatefile(
     local.traefik_dashboard_gateway_api_file,
     {
+      name               = "traefik_dashboard"
       gateway_class_name = local.traefik_gc_name
       namespace          = var.traefik_conf.namespace
     }
