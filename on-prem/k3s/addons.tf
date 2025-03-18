@@ -27,22 +27,22 @@ module "argocd" {
   }
 }
 
-module "jenkins" {
-  source                 = "../helm"
-  enabled                = 0
-  environment            = var.environment
-  name                   = local.jenkins_helm.release_name
-  namespace              = local.jenkins_helm.namespace
-  repository             = local.jenkins_helm.repository
-  chart_version          = local.jenkins_helm.chart_version
-  host                   = var.host
-  client_key             = var.client_key
-  client_certificate     = var.client_certificate
-  cluster_ca_certificate = var.cluster_ca_certificate
-  token                  = var.token
-  tags                   = var.tags
-  parameters = {
-    values  = local.jenkins_values
-    plugins = local.jenkins_plugins
-  }
-}
+# module "jenkins" {
+#   source                 = "../helm"
+#   enabled                = 0
+#   environment            = var.environment
+#   name                   = local.jenkins_helm.release_name
+#   namespace              = local.jenkins_helm.namespace
+#   repository             = local.jenkins_helm.repository
+#   chart_version          = local.jenkins_helm.chart_version
+#   host                   = var.host
+#   client_key             = var.client_key
+#   client_certificate     = var.client_certificate
+#   cluster_ca_certificate = var.cluster_ca_certificate
+#   token                  = var.token
+#   tags                   = var.tags
+#   parameters = {
+#     values  = local.jenkins_values
+#     plugins = local.jenkins_plugins
+#   }
+# }

@@ -5,13 +5,13 @@ locals {
   # serviceaccount_file = "${path.module}/charts/${var.name}/serviceaccount.json"
   # iam_role_created    = fileexists(local.serviceaccount_file) ? var.enabled : 0
 
-  middle_file      = "${path.module}/charts/${var.name}/templates/traefik/middle.yml.tftpl"
-  ingroute_file    = "${path.module}/charts/${var.name}/templates/traefik/ingroute.yml.tftpl"
-  middle_created   = length(var.parameters.middleware_strip_prefix_list) > 0 ? length(var.parameters.middleware_strip_prefix_list) : 0
-  ingroute_created = length(var.parameters.ingressroute_list) > 0 ? length(var.parameters.ingressroute_list) : 0
-
   middleware_strip_prefixes = var.parameters.routes.middleware_strip_prefix_list
   ingressroutes             = var.parameters.routes.ingressroute_list
+
+  middle_file      = "${path.module}/charts/${var.name}/templates/traefik/middle.yml.tftpl"
+  ingroute_file    = "${path.module}/charts/${var.name}/templates/traefik/ingroute.yml.tftpl"
+  middle_created   = length(local.middleware_strip_prefixes) > 0 ? length(local.middleware_strip_prefixes) : 0
+  ingroute_created = length(local.ingressroutes) > 0 ? length(local.ingressroutes) : 0
 }
 
 resource "helm_release" "main" {
