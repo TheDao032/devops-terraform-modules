@@ -59,6 +59,6 @@ resource "kubectl_manifest" "ingress_route" {
   )
 
   depends_on = [
-    kubectl_manifest.traefik_middle_strip_prefix,
+    kubectl_manifest.middle_strip_prefix,
   ]
 }
