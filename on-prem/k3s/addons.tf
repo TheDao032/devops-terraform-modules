@@ -1,6 +1,7 @@
 locals {
   argocd_helm     = var.argocd_conf.helm
   argocd_values   = var.argocd_conf.values
+  argocd_routes   = var.argocd_conf.routes
   jenkins_helm    = var.jenkins_conf.helm
   jenkins_values  = var.jenkins_conf.values
   jenkins_plugins = var.jenkins_conf.plugins
@@ -19,10 +20,10 @@ module "argocd" {
   client_certificate     = var.client_certificate
   cluster_ca_certificate = var.cluster_ca_certificate
   token                  = var.token
-  # chart         = null
-  tags = var.tags
+  tags                   = var.tags
   parameters = {
     values = local.argocd_values
+    routes = local.argocd_routes
   }
 }
 
@@ -39,8 +40,7 @@ module "jenkins" {
   client_certificate     = var.client_certificate
   cluster_ca_certificate = var.cluster_ca_certificate
   token                  = var.token
-  # chart         = null
-  tags = var.tags
+  tags                   = var.tags
   parameters = {
     values  = local.jenkins_values
     plugins = local.jenkins_plugins

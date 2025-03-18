@@ -9,6 +9,9 @@ locals {
   ingroute_file    = "${path.module}/charts/${var.name}/templates/traefik/ingroute.yml.tftpl"
   middle_created   = length(var.parameters.middleware_strip_prefix_list) > 0 ? length(var.parameters.middleware_strip_prefix_list) : 0
   ingroute_created = length(var.parameters.ingressroute_list) > 0 ? length(var.parameters.ingressroute_list) : 0
+
+  middleware_strip_prefixes = var.parameters.routes.middleware_strip_prefix_list
+  ingressroutes             = var.parameters.routes.ingressroute_list
 }
 
 resource "helm_release" "main" {
@@ -36,9 +39,9 @@ resource "kubectl_manifest" "middle_strip_prefix" {
 
   yaml_body = templatefile(local.middle_file,
     {
-      name      = var.parameters.middleware_strip_prefix_list[count.index].name
-      prefixes  = var.parameters.middleware_strip_prefix_list[count.index].prefixes
-      namespace = var.parameters.middleware_strip_prefix_list[count.index].namespace
+      name      = local.middleware_strip_prefixes[count.index].name
+      prefixes  = local.middleware_strip_prefixes[count.index].prefixes
+      namespace = local.middleware_strip_prefixes[count.index].namespace
     }
   )
 
@@ -49,12 +52,12 @@ resource "kubectl_manifest" "ingress_route" {
   count = local.ingroute_created
   yaml_body = templatefile(local.ingroute_file,
     {
-      ingress_route_name     = var.parameters.ingressroute_list[count.index].ingress_route_name
-      middleware_annotations = var.parameters.ingressroute_list[count.index].middleware_annotations
-      match_condition        = var.parameters.ingressroute_list[count.index].match_condition
-      middlewares            = var.parameters.ingressroute_list[count.index].middlewares
-      services               = var.parameters.ingressroute_list[count.index].services
-      namespace              = var.parameters.ingressroute_list[count.index].namespace
+      ingress_route_name     = local.ingressroutes[count.index].ingress_route_name
+      middleware_annotations = local.ingressroutes[count.index].middleware_annotations
+      match_condition        = local.ingressroutes[count.index].match_condition
+      middlewares            = local.ingressroutes[count.index].middlewares
+      services               = local.ingressroutes[count.index].services
+      namespace              = local.ingressroutes[count.index].namespace
     }
   )
 
