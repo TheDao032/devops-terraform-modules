@@ -1,7 +1,7 @@
 locals {
   traefik_gc_file                    = "${path.module}/templates/traefik/gc/traefik_gc.yml.tftpl"
   traefik_dashboard_gateway_api_file = "${path.module}/templates/traefik/gateway-api/dashboard_gatewap_api.yml.tftpl"
-  traefik_gw_file                    = "${path.module}/templates/traefik/gateway-api/gatewap.yml.tftpl"
+  traefik_gw_file                    = "${path.module}/templates/traefik/gateway-api/gateway.yml.tftpl"
   traefik_gc_name                    = "traefik"
   traefik_gw_name                    = "traefik"
 
