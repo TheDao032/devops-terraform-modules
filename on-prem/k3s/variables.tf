@@ -20,7 +20,7 @@ variable "tags" {
   default     = {}
 }
 
-variable "kube_host" {
+variable "host" {
   type = string
 }
 

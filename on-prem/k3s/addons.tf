@@ -14,7 +14,7 @@ module "argocd" {
   namespace              = local.argocd_helm.namespace
   repository             = local.argocd_helm.repository
   chart_version          = local.argocd_helm.chart_version
-  kube_host              = var.kube_host
+  host                   = var.host
   client_key             = var.client_key
   client_certificate     = var.client_certificate
   cluster_ca_certificate = var.cluster_ca_certificate
@@ -34,7 +34,7 @@ module "jenkins" {
   namespace              = local.jenkins_helm.namespace
   repository             = local.jenkins_helm.repository
   chart_version          = local.jenkins_helm.chart_version
-  kube_host              = var.kube_host
+  host                   = var.host
   client_key             = var.client_key
   client_certificate     = var.client_certificate
   cluster_ca_certificate = var.cluster_ca_certificate
