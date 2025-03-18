@@ -16,13 +16,13 @@ variable "environment" {
 }
 
 variable "traefik_conf" {
-  description = "alloy Conf Data"
+  description = "Traefik Conf Data"
   type        = map(any)
   default     = {}
 }
 
-variable "traefik_conf" {
-  description = "alloy Conf Data"
+variable "coredns_conf" {
+  description = "CoreDNS Conf Data"
   type        = map(any)
   default     = {}
 }
