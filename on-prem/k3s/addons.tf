@@ -7,13 +7,18 @@ locals {
 }
 
 module "argocd" {
-  source        = "../helm"
-  enabled       = 1
-  environment   = var.environment
-  name          = local.argocd_helm.release_name
-  namespace     = local.argocd_helm.namespace
-  repository    = local.argocd_helm.repository
-  chart_version = local.argocd_helm.chart_version
+  source                 = "../helm"
+  enabled                = 1
+  environment            = var.environment
+  name                   = local.argocd_helm.release_name
+  namespace              = local.argocd_helm.namespace
+  repository             = local.argocd_helm.repository
+  chart_version          = local.argocd_helm.chart_version
+  kube_host              = var.kube_host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
   # chart         = null
   tags = var.tags
   parameters = {
@@ -22,13 +27,18 @@ module "argocd" {
 }
 
 module "jenkins" {
-  source        = "../helm"
-  enabled       = 0
-  environment   = var.environment
-  name          = local.jenkins_helm.release_name
-  namespace     = local.jenkins_helm.namespace
-  repository    = local.jenkins_helm.repository
-  chart_version = local.jenkins_helm.chart_version
+  source                 = "../helm"
+  enabled                = 0
+  environment            = var.environment
+  name                   = local.jenkins_helm.release_name
+  namespace              = local.jenkins_helm.namespace
+  repository             = local.jenkins_helm.repository
+  chart_version          = local.jenkins_helm.chart_version
+  kube_host              = var.kube_host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
   # chart         = null
   tags = var.tags
   parameters = {

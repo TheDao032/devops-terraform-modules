@@ -4,18 +4,38 @@ variable "environment" {
 
 variable "jenkins_conf" {
   description = "Configuration for Jenkins values"
-  type = map(any)
-  default = {}
+  type        = map(any)
+  default     = {}
 }
 
 variable "argocd_conf" {
   description = "Configuration for ArgoCD values"
-  type = map(any)
-  default = {}
+  type        = map(any)
+  default     = {}
 }
 
 variable "tags" {
   description = "Tags"
-  type = map(any)
-  default = {}
+  type        = map(any)
+  default     = {}
+}
+
+variable "kube_host" {
+  type = string
+}
+
+variable "client_key" {
+  type = string
+}
+
+variable "client_certificate" {
+  type = string
+}
+
+variable "cluster_ca_certificate" {
+  type = string
+}
+
+variable "token" {
+  type = string
 }
