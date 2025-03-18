@@ -1,7 +1,9 @@
 locals {
   traefik_gc_file                    = "${path.module}/templates/traefik/gc/traefik_gc.yml.tftpl"
   traefik_dashboard_gateway_api_file = "${path.module}/templates/traefik/gateway-api/dashboard_gatewap_api.yml.tftpl"
+  traefik_gw_file                    = "${path.module}/templates/traefik/gateway-api/gatewap.yml.tftpl"
   traefik_gc_name                    = "traefik"
+  traefik_gw_name                    = "traefik"
 
   # traefik_dashboard_svc_value_file      = ""
   # traefik_dashboard_ing_value_file      = ""
@@ -42,6 +44,14 @@ locals {
 resource "kubectl_manifest" "gateway_class" {
   yaml_body = templatefile(local.traefik_gc_file, {
     gateway_class_name = local.traefik_gc_name
+  })
+}
+
+resource "kubectl_manifest" "gateway_class" {
+  yaml_body = templatefile(local.traefik_gw_file, {
+    namespace          = var.traefik_conf.namespace
+    gateway_class_name = local.traefik_gc_name
+    name               = local.traefik_gw_name
   })
 }
 

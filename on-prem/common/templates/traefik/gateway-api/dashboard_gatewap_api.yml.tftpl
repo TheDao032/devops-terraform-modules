@@ -11,12 +11,13 @@ spec:
       kind: Gateway
 
   rules:
-     - matches:
-        - path:
-            type: PathPrefix
-            value: /
-
-       backendRefs:
-        - name: traefik
-          namespace: ${namespace}
-          port: 9000
+    - matches:
+      - path:
+          type: PathPrefix
+          value: /dashboard
+      - path:
+          type: PathPrefix
+          value: /api
+    backendRefs:
+      - name: traefik
+        port: 9000
