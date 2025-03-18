@@ -1,38 +1,36 @@
-controller:
-  numExecutors: 3
-  executorMode: "EXCLUSIVE"
-  customJenkinsLabels: ["master-node"]
-  image:
-    tag: ${jenkins_version}
-
-  ingress:
-    enabled: true
-    ingressClassName: traefik
-    annotations:
-      kubernetes.io/ingress.class: "traefik"
-      traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      traefik.ingress.kubernetes.io/router.tls: "true"
-    ## hostName: ${jenkins_hostname}
-
-  ## jenkinsUrl: ${jenkins_url}
-  JCasC:
-    securityRealm: |-
-      local:
-        allowsSignup: false
-        enableCaptcha: false
-        users:
-        - id: ${jenkins_username}
-          name: "Jenkins Admin"
-          password: ${jenkins_password}
-    authorizationStrategy: |-
-      loggedInUsersCanDoAnything:
-        allowAnonymousRead: false
-
-  installPlugins:
-    %{ for k, v in jenkins_plugins ~}
-    - ${k}:${v}
-    %{ endfor ~}
-
-persistence:
-  storageClass: ${storage_class_name}
-  size: ${jenkins_volume_size}
+servers:
+- zones:
+  - zone: .
+  port: 53
+  # -- expose the service on a different port
+  # servicePort: 5353
+  # If serviceType is nodePort you can specify nodePort here
+  # nodePort: 30053
+  # hostPort: 53
+  plugins:
+  - name: errors
+  # Serves a /health endpoint on :8080, required for livenessProbe
+  - name: health
+    configBlock: |-
+      lameduck 5s
+  # Serves a /ready endpoint on :8181, required for readinessProbe
+  - name: ready
+  # Required to query kubernetes API for data
+  - name: kubernetes
+    parameters: in-addr.arpa ip6.arpa
+    configBlock: |-
+      pods insecure
+      fallthrough in-addr.arpa ip6.arpa
+      ttl 30
+  # Serves a /metrics endpoint on :9153, required for serviceMonitor
+  - name: prometheus
+    parameters: 0.0.0.0:9153
+  - name: forward
+    parameters: . /etc/resolv.conf
+    configBlock: |-
+      policy sequential
+  - name: cache
+    parameters: 30
+  - name: loop
+  - name: reload
+  - name: loadbalance
