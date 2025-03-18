@@ -21,7 +21,13 @@ variable "traefik_conf" {
   default     = {}
 }
 
-variable "traefik_dashboard_ingroute_name" {
+variable "traefik_conf" {
+  description = "alloy Conf Data"
+  type        = map(any)
+  default     = {}
+}
+
+variable "dashboard_ingroute_name" {
   description = "Traefik dashboard"
   type        = string
   default     = "traefik-dashboard"

@@ -1,12 +1,14 @@
 locals {
-  traefik_gc_file                    = "${path.module}/templates/traefik/gc/traefik_gc.yml.tftpl"
-  traefik_dashboard_gateway_api_file = "${path.module}/templates/traefik/gateway-api/dashboard_gatewap_api.yml.tftpl"
-  traefik_gw_file                    = "${path.module}/templates/traefik/gateway-api/gateway.yml.tftpl"
-  traefik_gc_name                    = "traefik"
-  traefik_gw_name                    = "traefik"
+  gc_file = "${path.module}/templates/traefik/gc/traefik_gc.yml.tftpl"
+  gc_name = "traefik"
+  gw_file = "${path.module}/templates/traefik/gateway-api/gateway.yml.tftpl"
+  gw_name = "traefik"
 
-  # traefik_dashboard_svc_value_file      = ""
-  # traefik_dashboard_ing_value_file      = ""
+  dashboard_gwa_file = "${path.module}/templates/traefik/gateway-api/dashboard_gwa.yml.tftpl"
+
+  dashboard_svc_file      = "${path.module}/templates/traefik/svcs/dashboard_svc.yml.tftpl"
+  dashboard_ing_file      = "${path.module}/templates/traefik/ings/dashboard_ing.yml.tftpl"
+  dashboard_ingroute_file = "${path.module}/templates/traefik/ings/dashboard_ingroute.yml.tftpl"
 }
 
 # resource "kubectl_manifest" "traefik_dashboard_svc" {
@@ -31,39 +33,41 @@ locals {
 #   )
 # }
 
-# resource "kubectl_manifest" "traefik_dashboard_ingroute" {
-#   yaml_body = templatefile(
-#     local.traefik_dashboard_ingroute_value_file,
-#     {
-#       ingress_route_name = var.traefik_dashboard_ingroute_name
-#       namespace          = var.traefik_conf.namespace
-#     }
-#   )
-# }
-
-resource "kubectl_manifest" "gateway_class" {
-  yaml_body = templatefile(local.traefik_gc_file, {
-    gateway_class_name = local.traefik_gc_name
-  })
-}
-
-resource "kubectl_manifest" "gateway" {
-  yaml_body = templatefile(local.traefik_gw_file, {
-    namespace          = var.traefik_conf.namespace
-    gateway_class_name = local.traefik_gc_name
-    name               = local.traefik_gw_name
-  })
-}
-
-resource "kubectl_manifest" "traefik_dashboard_gateway_api" {
+resource "kubectl_manifest" "dashboard_ingroute" {
   yaml_body = templatefile(
-    local.traefik_dashboard_gateway_api_file,
+    local.dashboard_ingroute_file,
     {
-      name               = "traefik-dashboard"
-      gateway_class_name = local.traefik_gc_name
+      ingress_route_name = var.dashboard_ingroute_name
       namespace          = var.traefik_conf.namespace
     }
   )
-
-  depends_on = [kubectl_manifest.gateway_class]
 }
+
+# resource "kubectl_manifest" "gateway_class" {
+#   yaml_body = templatefile(local.gc_file, {
+#     gateway_class_name = local.gc_name
+#   })
+# }
+#
+# resource "kubectl_manifest" "gateway" {
+#   yaml_body = templatefile(local.gw_file, {
+#     namespace          = var.traefik_conf.namespace
+#     gateway_class_name = local.gc_name
+#     name               = local.gw_name
+#   })
+#
+#   depends_on = [kubectl_manifest.gateway_class]
+# }
+#
+# resource "kubectl_manifest" "traefik_dashboard_gateway_api" {
+#   yaml_body = templatefile(
+#     local.dashboard_gwa_file,
+#     {
+#       name               = "traefik-dashboard"
+#       gateway_class_name = local.gc_name
+#       namespace          = var.traefik_conf.namespace
+#     }
+#   )
+#
+#   depends_on = [kubectl_manifest.gateway]
+# }
