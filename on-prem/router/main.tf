@@ -19,8 +19,6 @@ resource "kubectl_manifest" "middle_strip_prefix" {
       namespace = local.middleware_strip_prefixes[count.index].namespace
     }
   )
-
-  depends_on = [helm_release.main]
 }
 
 resource "kubectl_manifest" "ingress_route" {
