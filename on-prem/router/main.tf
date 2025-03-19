@@ -1,7 +1,7 @@
 locals {
   router                    = var.parameters.router
-  middleware_strip_prefixes = local.router != {} && try(var.parameters.router.middleware_strip_prefixes, []) ? var.parameters.router.middleware_strip_prefixes : []
-  ingressroutes             = local.router != {} && try(var.parameters.router.ingressroutes, []) ? var.parameters.router.ingressroutes : []
+  middleware_strip_prefixes = local.router != {} && can(var.parameters.router.middleware_strip_prefixes) ? var.parameters.router.middleware_strip_prefixes : []
+  ingressroutes             = local.router != {} && can(var.parameters.router.ingressroutes) ? var.parameters.router.ingressroutes : []
 
   middle_file      = "${path.module}/${var.route_type}/middle.yml.tftpl"
   ingroute_file    = "${path.module}/${var.route_type}/ingroute.yml.tftpl"
