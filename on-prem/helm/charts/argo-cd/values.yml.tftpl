@@ -4,7 +4,8 @@ global:
 configs:
   params:
     server.insecure: true
-    server.rootpath: ${parameters.values.rootpath}
+    server.basehref: ${parameters.values.baseref}
+  #   server.rootpath: ${parameters.values.rootpath}
 
   secret:
     argocdServerAdminPassword: ${parameters.values.admin_password}
