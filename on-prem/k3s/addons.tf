@@ -33,7 +33,7 @@ locals {
     ingressroutes = [
       {
         ingress_route_name = "argocd-ingressroute"
-        match_condition    = "PathPrefix(`${local.argocd_values.ingrooute_prefix}`)"
+        match_condition    = "PathPrefix(`${local.argocd_values.ingroute_prefix}`)"
         namespace          = "gitops"
         services = [
           {
