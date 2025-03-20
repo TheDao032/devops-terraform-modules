@@ -73,21 +73,21 @@ module "argocd" {
   }
 }
 
-# module "argocd-router" {
-#   source                 = "../router"
-#   enabled                = 1
-#   environment            = var.environment
-#   namespace              = local.argocd_helm.namespace
-#   host                   = var.host
-#   client_key             = var.client_key
-#   client_certificate     = var.client_certificate
-#   cluster_ca_certificate = var.cluster_ca_certificate
-#   token                  = var.token
-#   tags                   = var.tags
-#   parameters = {
-#     router = local.argocd_router
-#   }
-# }
+module "argocd-router" {
+  source                 = "../router"
+  enabled                = 1
+  environment            = var.environment
+  namespace              = local.argocd_helm.namespace
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    router = local.argocd_router
+  }
+}
 
 # module "jenkins" {
 #   source                 = "../helm"
