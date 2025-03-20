@@ -9,7 +9,7 @@ locals {
   argocd_middleware_strip_prefixes = [
     {
       name      = "argocd-strip-prefix"
-      prefixes  = [local.argocd_values.prefix]
+      prefixes  = [local.argocd_values.midl_prefix]
       namespace = "gitops"
     },
   ]
@@ -33,7 +33,7 @@ locals {
     ingressroutes = [
       {
         ingress_route_name = "argocd-ingressroute"
-        match_condition    = "PathPrefix(`${local.argocd_values.prefix}`)"
+        match_condition    = "PathPrefix(`${local.argocd_values.ingrooute_prefix}`)"
         namespace          = "gitops"
         services = [
           {
