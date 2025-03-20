@@ -1,5 +1,5 @@
-# global:
-#   domain: ""
+global:
+  domain: ${parameters.values.rootpath}
 
 configs:
   params:
@@ -12,6 +12,7 @@ configs:
 
 server:
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: "traefik"
+    path: ${parameters.values.rootpath}
     tls: false
