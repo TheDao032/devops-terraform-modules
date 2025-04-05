@@ -1,0 +1,38 @@
+controller:
+  numExecutors: 3
+  executorMode: "EXCLUSIVE"
+  customJenkinsLabels: ["master-node"]
+  image:
+    tag: ${parameters.common.version}
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    ## hostName: ${parameters.common.hostname}
+
+  ## jenkinsUrl: ${parameters.common.url}
+  JCasC:
+    securityRealm: |-
+      local:
+        allowsSignup: false
+        enableCaptcha: false
+        users:
+        - id: ${parameters.common.username}
+          name: "Jenkins Admin"
+          password: ${parameters.common.password}
+    authorizationStrategy: |-
+      loggedInUsersCanDoAnything:
+        allowAnonymousRead: false
+
+  installPlugins:
+    %{ for k, v in parameters.plugins ~}
+    - ${k}:${v}
+    %{ endfor ~}
+
+persistence:
+  storageClass: ${parameters.common.sc_name}
+  size: ${parameters.common.volume_size}

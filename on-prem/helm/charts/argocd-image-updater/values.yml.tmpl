@@ -1,0 +1,12 @@
+config:
+  argocd:
+    grpcWeb: false
+    serverAddress: "${parameters.common.argocd_server_url}"
+    insecure: true
+    plaintext: true
+  registries:
+    - name: Docker Hub
+      api_url: https://registry-1.docker.io
+      ping: yes
+      credentials: secret:${namespace}/${parameters.docker.secret_name}#token
+      defaultns: library

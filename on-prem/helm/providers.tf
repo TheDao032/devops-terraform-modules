@@ -9,8 +9,8 @@ terraform {
 }
 
 provider "kubectl" {
-  apply_retry_count      = 1
-  load_config_file       = false
+  apply_retry_count = 1
+  load_config_file  = false
 
   host                   = var.host
   client_key             = base64decode("${var.client_key}")

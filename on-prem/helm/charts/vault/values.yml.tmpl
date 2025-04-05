@@ -1,0 +1,63 @@
+global:
+  enabled: true
+  tlsDisable: false
+
+## injector:
+##   enabled: true
+##   externalVaultAddr: ${parameters.common.external_vault_addr}
+##   # Use the Vault K8s Image https://github.com/hashicorp/vault-k8s/
+
+server:
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    ingressClassName: "traefik"
+    hosts:
+      - host: ${parameters.common.host}
+        paths:
+          - /
+
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+      disable_mlock = true
+      api_addr = "[::]:8200"
+      cluster_addr = "[::]:8201"
+
+      listener "tcp" {
+        tls_disable = 1
+        address     = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+
+      storage "file" {
+        path = "/vault/data"
+      }
+
+  readinessProbe:
+    enabled: true
+    path: /v1/sys/health?standbyok=true
+  livenessProbe:
+    enabled: true
+    path: /v1/sys/health?standbyok=true
+    initialDelaySeconds: 50
+
+  dataStorage:
+    enabled: true
+    size: ${parameters.server.datastore_size}
+    mountPath: ${parameters.server.datastore_mount_path}
+    storrageClass: ${parameters.common.sc_name}
+
+  auditStorage:
+    enabled: true
+    size: ${parameters.server.auditstore_size}
+    # Location where the PVC will be mounted.
+    mountPath: ${parameters.server.auditstore_mount_path}
+    storrageClass: ${parameters.common.sc_name}
+
+# Vault UI
+ui:
+  enabled: ${parameters.ui.enabled}

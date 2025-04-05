@@ -1,0 +1,119 @@
+global:
+  enabled: true
+  tlsDisable: false
+
+injector:
+  enabled: true
+  externalVaultAddr: http://external-vault:8200
+  # Use the Vault K8s Image https://github.com/hashicorp/vault-k8s/
+
+  resources:
+    requests:
+      memory: ${injector_conf.resources.rq_mem}
+      cpu: ${injector_conf.resources.rq_cpu}
+    limits:
+      memory: ${injector_conf.resources.limits_mem}
+      cpu: ${injector_conf.resources.limits_cpu}
+
+server:
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+    ingressClassName: "traefik"
+    hosts:
+      %{ for item in vault_hosts ~}
+- host: ${item.host}
+        paths:
+        %{ for path in item.paths ~}
+  - ${path}
+        %{ endfor ~}
+      %{ endfor ~}
+
+  # For HA configuration and because we need to manually init the vault,
+  # we need to define custom readiness/liveness Probe settings
+  readinessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+  livenessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true"
+    initialDelaySeconds: 60
+
+  # extraEnvironmentVars is a list of extra environment variables to set with the stateful set. These could be
+  # used to include variables required for auto-unseal.
+  extraEnvironmentVars:
+    VAULT_CACERT: /vault/userconfig/${vault_tls_ca_name}/tls.crt
+
+  # extraVolumes is a list of extra volumes to mount. These will be exposed
+  # to Vault in the path `/vault/userconfig/<name>/`.
+  extraVolumes:
+    - type: secret
+      name: ${vault_tls_server_name}
+    - type: secret
+      name: ${vault_tls_ca_name}
+
+  standalone:
+    enabled: false
+
+  # Run Vault in "HA" mode.
+  ha:
+    enabled: true
+    replicas: 1
+    config: |
+      ui = true
+      disable_mlock = true
+      api_addr = "http://127.0.0.1:8200"
+      cluster_addr = "https://127.0.0.1:8201"
+
+      listener "tcp" {
+        tls_disable = 0
+        address     = "0.0.0.0:8200"
+        tls_cert_file = "/vault/userconfig/${vault_tls_server_name}/tls.crt"
+        tls_key_file = "/vault/userconfig/${vault_tls_server_name}/tls.key"
+        tls_min_version = "tls12"
+      }
+
+      seal "transit" {
+        address     = "${vault_server_url}"
+        token       = "${vault_server_token}"
+        disable_renewal = "false"
+        key_name = "autounseal"
+        mount_path = "transit/"
+        tls_skip_verify = "true"
+      }
+
+      storage "consul" {
+        path = "vault"
+        address = "${consul_server_url}"
+      }
+
+  resources:
+    requests:
+      memory: ${server_conf.resources.rq_mem}
+      cpu: ${server_conf.resources.rq_cpu}
+    limits:
+      memory: ${server_conf.resources.limits_mem}
+      cpu: ${server_conf.resources.limits_cpu}
+
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+
+  dataStorage:
+    enabled: true
+    size: ${server_conf.datastore.size}
+    mountPath: ${server_conf.datastore.mount_path}
+    storrageClass: ${storage_class_name}
+
+  auditStorage:
+    enabled: true
+    size: ${server_conf.auditstore.size}
+    # Location where the PVC will be mounted.
+    mountPath: ${server_conf.auditstore.mount_path}
+    storrageClass: ${storage_class_name}
+
+# Vault UI
+ui:
+  enabled: ${ui_conf.enabled}

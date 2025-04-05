@@ -2,21 +2,14 @@ variable "environment" {
   type = string
 }
 
-variable "namespace" {
-  type = string
+variable "local" {
+  description = "Configuration for local namespace values"
+  type        = map(any)
+  default     = {}
 }
 
-variable "enabled" {
-  type    = number
-  default = 1
-}
-
-# variable "name" {
-#   type = string
-# }
-
-variable "parameters" {
-  description = "Chart's parameters"
+variable "gitops" {
+  description = "Configuration for gitops namespace values"
   type        = map(any)
   default     = {}
 }

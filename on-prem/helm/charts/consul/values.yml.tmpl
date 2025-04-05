@@ -1,0 +1,20 @@
+global:
+  name: consul
+  datacenter: vault-dc
+
+client:
+  enabled: true
+
+server:
+  replicas: 1
+  bootstrapExpect: 1
+  disruptionBudget:
+    maxUnavailable: 0
+
+  resources:
+  requests:
+    memory: ${parameters.server.rq_mem}
+    cpu: ${parameters.server.rq_cpu}
+  limits:
+    memory: ${parameters.server.limits_mem}
+    cpu: ${parameters.server.limits_cpu}

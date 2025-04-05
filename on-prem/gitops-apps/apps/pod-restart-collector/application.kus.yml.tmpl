@@ -1,0 +1,30 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${parameters.common.app_name}
+  namespace: ${parameters.argocd.namespace}
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: image=${parameters.docker.organization}/${parameters.common.app_name}:latest
+    argocd-image-updater.argoproj.io/image.update-strategy: digest
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: ${parameters.github.url}/${parameters.github.gitops_repo}
+    targetRevision: ${environment}
+    path: kustomize/services/${parameters.common.app_name}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${namespace}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - Validate=true
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

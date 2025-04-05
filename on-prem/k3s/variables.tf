@@ -14,6 +14,42 @@ variable "argocd_conf" {
   default     = {}
 }
 
+variable "argocd_img_upd_conf" {
+  description = "Configuration for ArgoCD Img Updater values"
+  type        = map(any)
+  default     = {}
+}
+
+variable "coredns_conf" {
+  description = "Configuration for CoreDNS values"
+  type        = map(any)
+  default     = {}
+}
+
+variable "kafka_conf" {
+  description = "Configuration for Kafka values"
+  type        = map(any)
+  default     = {}
+}
+
+variable "consul_conf" {
+  description = "Configuration for Consul values"
+  type        = map(any)
+  default     = {}
+}
+
+variable "vault_conf" {
+  description = "Configuration for Consul values"
+  type        = map(any)
+  default     = {}
+}
+
+variable "external_secrets_conf" {
+  description = "Configuration for Consul values"
+  type        = map(any)
+  default     = {}
+}
+
 variable "tags" {
   description = "Tags"
   type        = map(any)

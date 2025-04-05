@@ -2,21 +2,8 @@ variable "environment" {
   type = string
 }
 
-variable "namespace" {
-  type = string
-}
-
-variable "enabled" {
-  type    = number
-  default = 1
-}
-
-# variable "name" {
-#   type = string
-# }
-
-variable "parameters" {
-  description = "Chart's parameters"
+variable "pod_restart_collector" {
+  description = "Configuration for pod restart collector application"
   type        = map(any)
   default     = {}
 }

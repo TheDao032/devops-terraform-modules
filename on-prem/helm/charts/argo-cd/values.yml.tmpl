@@ -1,0 +1,27 @@
+global:
+  domain: ${parameters.ingress.domain}
+
+configs:
+  cm:
+    admin.enabled: true
+  params:
+    server.insecure: true
+  credentialTemplates:
+    ssh-creds:
+      url: ${parameters.github.url}
+      sshPrivateKey: |
+        ${indent(8, parameters.github.ssh_priv_key)}
+  repositories:
+    gitops-apps:
+      url: ${parameters.github.url}/${parameters.github.gitops_repo}
+      name: gitops-apps
+      project: default
+
+  ## secret:
+  ##   argocdServerAdminPassword: ${parameters.common.admin_password}
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: "traefik"
+    tls: false

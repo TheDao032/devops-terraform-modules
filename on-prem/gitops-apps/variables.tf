@@ -11,9 +11,9 @@ variable "enabled" {
   default = 1
 }
 
-# variable "name" {
-#   type = string
-# }
+variable "name" {
+  type = string
+}
 
 variable "parameters" {
   description = "Chart's parameters"
