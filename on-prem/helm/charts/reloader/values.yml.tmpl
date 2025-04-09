@@ -1,0 +1,9 @@
+reloader:
+  deployment:
+    resources:
+      limits:
+        cpu: ${parameters.common.limits_cpu}
+        memory: ${parameters.common.limits_mem}
+      requests:
+        cpu: ${parameters.common.rq_cpu}
+        memory: ${parameters.common.rq_mem}

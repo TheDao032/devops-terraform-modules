@@ -1,0 +1,17 @@
+%{ for policy in policies ~}
+path "${environment}/data/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.data_capabilities))}
+}
+
+path "${environment}/metadata/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.metadata_capabilities))}
+}
+
+path "${environment}/delete/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.delete_capabilities))}
+}
+
+path "${environment}/destroy/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.destroy_capabilities))}
+}
+%{ endfor ~}

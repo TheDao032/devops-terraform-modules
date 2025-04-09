@@ -4,11 +4,14 @@ locals {
   pod_res_col_common = var.pod_restart_collector.common
   pod_res_col_argocd = var.pod_restart_collector.argocd
   pod_res_col_secret = var.pod_restart_collector.secret
+
+  disabled = 0
+  enabled  = 1
 }
 
 module "pod-restart-collector" {
-  source                 = "../gitops-apps"
-  enabled                = 1
+  source                 = "../gitops"
+  enabled                = local.disabled
   environment            = var.environment
   name                   = local.pod_res_col_common.app_name
   namespace              = local.pod_res_col_common.namespace

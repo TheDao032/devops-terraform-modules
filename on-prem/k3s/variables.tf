@@ -8,6 +8,12 @@ variable "jenkins_conf" {
   default     = {}
 }
 
+variable "reloader_conf" {
+  description = "Configuration for Jenkins values"
+  type        = map(any)
+  default     = {}
+}
+
 variable "argocd_conf" {
   description = "Configuration for ArgoCD values"
   type        = map(any)

@@ -90,6 +90,7 @@ locals {
 
   jenkins_helm    = var.jenkins_conf.helm
   jenkins_common  = var.jenkins_conf.common
+  jenkins_secrets = var.jenkins_conf.secrets
   jenkins_plugins = var.jenkins_conf.plugins
 
   argocd_helm = var.argocd_conf.helm
@@ -102,6 +103,9 @@ locals {
   argocd_img_upd_helm   = var.argocd_img_upd_conf.helm
   argocd_img_upd_docker = var.argocd_img_upd_conf.docker
   argocd_img_upd_common = var.argocd_img_upd_conf.common
+
+  reloader_helm   = var.reloader_conf.helm
+  reloader_common = var.reloader_conf.common
 
   disabled = 0
   enabled  = 1
@@ -157,6 +161,25 @@ module "core-dns" {
   tags                   = var.tags
   parameters = {
     common = local.coredns_common
+  }
+}
+
+module "reloader" {
+  source                 = "../helm"
+  enabled                = local.enabled
+  environment            = var.environment
+  name                   = local.reloader_helm.release_name
+  namespace              = local.reloader_helm.namespace
+  repository             = local.reloader_helm.repository
+  chart_version          = local.reloader_helm.chart_version
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    common = local.reloader_common
   }
 }
 
@@ -218,6 +241,27 @@ module "argocd-img-update" {
   }
 
   # depends_on = [null_resource.ex_secrets_ready]
+}
+
+module "jenkins" {
+  source                 = "../helm"
+  enabled                = local.enabled
+  environment            = var.environment
+  name                   = local.jenkins_helm.release_name
+  namespace              = local.jenkins_helm.namespace
+  repository             = local.jenkins_helm.repository
+  chart_version          = local.jenkins_helm.chart_version
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    secrets = local.jenkins_secrets
+    common  = local.jenkins_common
+    plugins = local.jenkins_plugins
+  }
 }
 
 # module "consul" {
@@ -294,25 +338,5 @@ module "argocd-img-update" {
 #   tags                   = var.tags
 #   parameters = {
 #     router = local.argocd_router
-#   }
-# }
-
-# module "jenkins" {
-#   source                 = "../helm"
-#   enabled                = 0
-#   environment            = var.environment
-#   name                   = local.jenkins_helm.release_name
-#   namespace              = local.jenkins_helm.namespace
-#   repository             = local.jenkins_helm.repository
-#   chart_version          = local.jenkins_helm.chart_version
-#   host                   = var.host
-#   client_key             = var.client_key
-#   client_certificate     = var.client_certificate
-#   cluster_ca_certificate = var.cluster_ca_certificate
-#   token                  = var.token
-#   tags                   = var.tags
-#   parameters = {
-#     values  = local.jenkins_values
-#     plugins = local.jenkins_plugins
 #   }
 # }

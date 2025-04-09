@@ -3,7 +3,7 @@ controller:
   executorMode: "EXCLUSIVE"
   customJenkinsLabels: ["master-node"]
   image:
-    tag: ${parameters.common.version}
+    tag: ${parameters.common.tag}
 
   ingress:
     enabled: true
@@ -11,10 +11,10 @@ controller:
     annotations:
       kubernetes.io/ingress.class: "traefik"
       traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-      traefik.ingress.kubernetes.io/router.tls: "true"
-    ## hostName: ${parameters.common.hostname}
+      ## traefik.ingress.kubernetes.io/router.tls: "true"
+    hostName: ${parameters.common.hostname}
 
-  ## jenkinsUrl: ${parameters.common.url}
+  ## jenkinsUrl: ${parameters.common.hostname} ## Using this argurement when disabled ingress
   JCasC:
     securityRealm: |-
       local:
@@ -23,10 +23,39 @@ controller:
         users:
         - id: ${parameters.common.username}
           name: "Jenkins Admin"
-          password: ${parameters.common.password}
+          password: "${parameters.common.password}"
     authorizationStrategy: |-
       loggedInUsersCanDoAnything:
         allowAnonymousRead: false
+    configScripts:
+      jenkins-casc-configs: |-
+        credentials:
+          system:
+            domainCredentials:
+            - credentials:
+              - vaultTokenCredential:
+                  description: "Vault jenkins token"
+                  id: "vault-jenkins-token"
+                  scope: GLOBAL
+                  token: "${parameters.secrets.vault_token}"
+              - vaultAppRoleCredential:
+                  description: "Vault jenkins approle"
+                  id: "vault-jenkins-approle"
+                  path: "approle"
+                  roleId: "${parameters.secrets.vault_role_id}"
+                  scope: GLOBAL
+                  secretId: "${parameters.secrets.vault_secret_id}"
+                  usePolicies: false
+      unclassifiedcasc: |-
+        unclassified:
+          hashicorpVault:
+            configuration:
+              disableChildPoliciesOverride: false
+              engineVersion: 2
+              skipSslVerification: true
+              timeout: 60
+              vaultCredentialId: "vault-jenkins-token"
+              vaultUrl: "${parameters.secrets.vault_url}"
 
   installPlugins:
     %{ for k, v in parameters.plugins ~}
