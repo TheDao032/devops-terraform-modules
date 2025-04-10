@@ -46,6 +46,17 @@ controller:
                   scope: GLOBAL
                   secretId: "${parameters.secrets.vault_secret_id}"
                   usePolicies: false
+              %{ for k, v in env_info ~}
+
+              - file:
+                  description: "${v.name}"
+                  fileName: "${k}"
+                  id: "${v.name}-env"
+                  scope: GLOBAL
+                  secretBytes: "${v.content}"
+
+              %{ endfor ~}
+
       unclassifiedcasc: |-
         unclassified:
           hashicorpVault:

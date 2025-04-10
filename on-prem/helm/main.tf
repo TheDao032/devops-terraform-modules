@@ -13,6 +13,14 @@ locals {
 
   templates_path = "${path.module}/charts/${var.name}/templates"
   templates      = fileset(local.templates_path, "*.yml.tmpl")
+
+  env_files = fileset("${local.templates_path}/envs/${var.environment}", "*.env")
+
+  env_info = { for env in local.env_files : env => {
+    name    = split(".", env)[0]
+    content = filebase64("${local.templates_path}/envs/${var.environment}/${env}")
+    }
+  }
   # templates_enabled = length(local.templates) > 0 ? length(local.templates) : 0
 
   # serviceaccount_file = "${path.module}/charts/${var.name}/serviceaccount.json"
@@ -82,6 +90,7 @@ resource "helm_release" "main" {
           namespace   = var.namespace
           environment = var.environment
           parameters  = var.parameters
+          env_info    = local.env_info
         },
       )
   ] : null)
@@ -94,6 +103,22 @@ resource "helm_release" "main" {
 }
 
 resource "kubectl_manifest" "templates" {
+  for_each = var.enabled == 1 ? toset(local.templates) : toset([])
+  # for_each = toset(local.templates)
+
+  yaml_body = templatefile("${local.templates_path}/${each.value}", {
+    parameters  = var.parameters
+    namespace   = var.namespace
+    environment = var.environment
+  })
+
+  depends_on = [
+    helm_release.main,
+    # kubectl_manifest.secret_store
+  ]
+}
+
+resource "kubectl_manifest" "envs_templates" {
   for_each = var.enabled == 1 ? toset(local.templates) : toset([])
   # for_each = toset(local.templates)
 
