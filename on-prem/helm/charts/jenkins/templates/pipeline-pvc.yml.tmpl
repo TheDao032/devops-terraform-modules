@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${parameters.common.pvc_name}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: ${parameters.common.pvc_rq_size}
+  storageClassName: ${parameters.common.sc_name}  # Or your cluster’s default

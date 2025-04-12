@@ -46,6 +46,18 @@ controller:
                   scope: GLOBAL
                   secretId: "${parameters.secrets.vault_secret_id}"
                   usePolicies: false
+              - usernamePassword:
+                  id: "dockerhub-creds"
+                  scope: GLOBAL
+                  description: "docker credentials"
+                  username: "${parameters.secrets.docker_username}"
+                  password: "${parameters.secrets.docker_token}"
+              - usernamePassword:
+                  id: "github-creds"
+                  username: "${parameters.secrets.github_username}"
+                  password: "${parameters.secrets.github_token}"
+                  description: "GitHub credentials"
+                  scope: GLOBAL
               %{ for k, v in env_info ~}
 
               - file:
@@ -76,3 +88,27 @@ controller:
 persistence:
   storageClass: ${parameters.common.sc_name}
   size: ${parameters.common.volume_size}
+agent:
+  podTemplates:
+    docker-agent: |
+      - name: docker-agent
+        label: docker-agent
+        serviceAccount: jenkins
+        containers:
+          - name: docker
+            image: docker:28.1.0-rc.1-dind
+            command:
+              - dockerd-entrypoint.sh
+            args:
+              - --host=unix:///var/run/docker.sock
+              - --iptables=false
+              - --ip-masq=false
+            ttyEnabled: true
+            privileged: true
+            volumeMounts:
+              - name: dind-storage
+                mountPath: /var/lib/docker
+        volumes:
+          - name: dind-storage
+            persistentVolumeClaim:
+              claimName: ${parameters.common.pvc_name}

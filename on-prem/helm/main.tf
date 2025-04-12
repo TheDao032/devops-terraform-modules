@@ -118,18 +118,18 @@ resource "kubectl_manifest" "templates" {
   ]
 }
 
-resource "kubectl_manifest" "envs_templates" {
-  for_each = var.enabled == 1 ? toset(local.templates) : toset([])
-  # for_each = toset(local.templates)
-
-  yaml_body = templatefile("${local.templates_path}/${each.value}", {
-    parameters  = var.parameters
-    namespace   = var.namespace
-    environment = var.environment
-  })
-
-  depends_on = [
-    helm_release.main,
-    # kubectl_manifest.secret_store
-  ]
-}
+# resource "kubectl_manifest" "envs_templates" {
+#   for_each = var.enabled == 1 ? toset(local.env_files) : toset([])
+#   # for_each = toset(local.templates)
+#
+#   yaml_body = templatefile("${local.templates_path}/envs/${var.environment}/${each.value}", {
+#     parameters  = var.parameters
+#     namespace   = var.namespace
+#     environment = var.environment
+#   })
+#
+#   depends_on = [
+#     helm_release.main,
+#     # kubectl_manifest.secret_store
+#   ]
+# }
