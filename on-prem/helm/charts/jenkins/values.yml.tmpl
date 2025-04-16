@@ -88,27 +88,84 @@ controller:
 persistence:
   storageClass: ${parameters.common.sc_name}
   size: ${parameters.common.volume_size}
+
 agent:
   podTemplates:
-    docker-agent: |
-      - name: docker-agent
-        label: docker-agent
+    docker: |
+      - name: docker
+        label: jenkins-docker
+        serviceAccount: jenkins
+        yaml: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            labels:
+              jenkins-agent: docker
+          spec:
+            containers:
+            - name: docker
+              image: docker:28.1.0-rc.1-dind
+              command:
+                - dockerd-entrypoint.sh
+              args:
+                - --host=unix:///var/run/docker.sock
+              tty: true
+              securityContext:
+                privileged: true
+              volumeMounts:
+                - name: dind-storage
+                  mountPath: /var/lib/docker
+            volumes:
+              - name: dind-storage
+                persistentVolumeClaim:
+                  claimName: ${parameters.common.pvc_name}
+        ## containers:
+        ##   - name: docker
+        ##     image: docker:28.1.0-rc.1-dind
+        ##     command: "/bin/sh -c"
+        ##     args: "dockerd-entrypoint.sh --host=unix:///var/run/docker.sock --iptables=false --ip-masq=false"
+        ##     ttyEnabled: true
+        ##     privileged: true
+        ##     resourceRequestCpu: "400m"
+        ##     resourceRequestMemory: "512Mi"
+        ##     resourceLimitCpu: "1"
+        ##     resourceLimitMemory: "1024Mi"
+    infra: |
+      - name: infra
+        label: jenkins-infra
+        serviceAccount: jenkins
+        yaml: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            labels:
+              jenkins-agent: infra
+          spec:
+            containers:
+            - name: infra
+              image: nthedao/infra-v1:latest
+              tty: true
+              securityContext:
+                privileged: true
+              volumeMounts:
+                - name: infra-storage
+                  mountPath: /var/jenkins_home/infra-v1
+            volumes:
+              - name: infra-storage
+                persistentVolumeClaim:
+                  claimName: ${parameters.common.pvc_name}
+    python: |
+      - name: python
+        label: jenkins-python
         serviceAccount: jenkins
         containers:
-          - name: docker
-            image: docker:28.1.0-rc.1-dind
-            command:
-              - dockerd-entrypoint.sh
-            args:
-              - --host=unix:///var/run/docker.sock
-              - --iptables=false
-              - --ip-masq=false
+          - name: python
+            image: python:3
+            command: "/bin/sh -c"
+            args: "cat"
             ttyEnabled: true
             privileged: true
-            volumeMounts:
-              - name: dind-storage
-                mountPath: /var/lib/docker
-        volumes:
-          - name: dind-storage
-            persistentVolumeClaim:
-              claimName: ${parameters.common.pvc_name}
+            resourceRequestCpu: "400m"
+            resourceRequestMemory: "512Mi"
+            resourceLimitCpu: "1"
+            resourceLimitMemory: "1024Mi"
