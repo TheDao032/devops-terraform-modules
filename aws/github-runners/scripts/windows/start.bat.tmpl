@@ -1,0 +1,16 @@
+@echo off
+setlocal
+
+:: Specify the full path of the file to append the timestamp to
+set FILEPATH=C:\start.txt
+
+:: Use PowerShell to get timestamp in ISO format
+for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format \"yyyy-MM-dd HH:mm:ss\""' ) do set TIMESTAMP=%%i
+
+:: Append the timestamp to the file
+echo %TIMESTAMP% >> "%FILEPATH%"
+
+:: Start the runner and disconnect
+nssm start gh-runner
+
+endlocal

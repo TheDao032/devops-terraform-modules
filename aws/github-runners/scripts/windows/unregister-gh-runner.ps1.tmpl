@@ -1,0 +1,80 @@
+try {
+    # Try to get a token (IMDSv2)
+    $token = Invoke-RestMethod -Method PUT -Uri "http://169.254.169.254/latest/api/token" `
+        -Headers @{ "X-aws-ec2-metadata-token-ttl-seconds" = "21600" }
+
+    # Use the token to get the instance ID
+    $instanceId = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id" `
+        -Headers @{ "X-aws-ec2-metadata-token" = $token }
+}
+catch {
+    # Fall back to IMDSv1 if token not required
+    $instanceId = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id"
+}
+
+Write-Output "Instance ID: $instanceId"
+
+# === CONFIGURATION ===
+$repo = "herondlabs/herond-browser"
+$runnerDir = "C:\actions-runner"
+$githubPAT = $env:GITHUB_PAT
+
+# === GITHUB HEADERS ===
+$headers = @{
+  Authorization = "Bearer $githubPAT"
+  Accept = "application/vnd.github+json"
+  "X-GitHub-Api-Version" = "2022-11-28"
+}
+
+# === FETCH REGISTERED RUNNERS ===
+$apiUrl = "https://api.github.com/repos/$repo/actions/runners"
+
+# API URL for runner registration token
+$tokenUrl = "https://api.github.com/repos/$repo/actions/runners/registration-token"
+
+# Get runner token
+$response = Invoke-RestMethod -Uri $tokenUrl -Method Post -Headers @{
+    Authorization = "Bearer $githubPAT"
+    Accept = "application/vnd.github+json"
+    "X-GitHub-Api-Version" = "2022-11-28"
+}
+
+$runnerToken = $response.token
+Write-Host "✅ Got unregistration token $runnerToken"
+
+try {
+  $runners = Invoke-RestMethod -Uri $apiUrl -Headers $headers
+} catch {
+  Write-Error "❌ Failed to get runners: $_"
+  exit 1
+}
+
+# === FIND THIS RUNNER ===
+$runnerToDelete = $runners.runners | Where-Object { $_.name -eq $instanceId }
+
+if ($null -eq $runnerToDelete) {
+  Write-Warning "⚠️ Runner '$instanceId' not found in GitHub"
+} else {
+  # === DELETE RUNNER FROM GITHUB ===
+  $deleteUrl = "$apiUrl/$($runnerToDelete.id)"
+  try {
+    Invoke-RestMethod -Uri $deleteUrl -Method DELETE -Headers $headers
+    Write-Host "✅ Runner '$instanceId' removed from GitHub"
+  } catch {
+    Write-Error "❌ Failed to delete runner from GitHub: $_"
+  }
+}
+
+# === STOP LOCAL RUNNER IF RUNNING ===
+Get-Process "run" -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# === UNREGISTER LOCALLY (Optional) ===
+Set-Location $runnerDir
+cmd /c "config.cmd remove --token $runnerToken"
+Write-Host "🧽 Local runner unregistered from disk"
+
+# === REMOVE LOCAL RUNNER CONFIG ===
+if (Test-Path "$runnerDir\.runner") {
+  Remove-Item "$runnerDir\.runner" -Recurse -Force
+  Write-Host "🧹 Local runner config deleted"
+}

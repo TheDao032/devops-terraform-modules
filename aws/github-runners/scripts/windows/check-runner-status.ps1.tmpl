@@ -1,0 +1,45 @@
+# Enable strict mode
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
+# --- Configuration ---
+$GitHubToken = $env:GITHUB_PAT  # Set this securely in environment
+$GitHubOwner = "herondlabs"     # GitHub org/user
+$GitHubRepo  = "herond-browser" # GitHub repo name
+
+# --- Get current instance ID from AWS metadata ---
+try {
+    $instanceId = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id" -TimeoutSec 3
+    Write-Output "🆔 Instance ID: $instanceId"
+} catch {
+    Write-Error "❌ Unable to retrieve AWS EC2 instance ID."
+    exit 1
+}
+
+# --- Fetch runners from GitHub ---
+$uri = "https://api.github.com/repos/$GitHubOwner/$GitHubRepo/actions/runners"
+$response = Invoke-RestMethod -Uri $uri -Headers @{
+    Authorization = "Bearer $GitHubToken"
+    "Accept"      = "application/vnd.github+json"
+    "User-Agent"  = "check-runner-status-script"
+}
+
+# --- Find the runner with name equal to instance ID ---
+$runner = $response.runners | Where-Object { $_.name -eq $instanceId }
+
+if (-not $runner) {
+    Write-Warning "⚠️ Runner with name '$instanceId' not found in GitHub."
+    exit 1
+}
+
+Write-Output "✅ Runner found: $($runner.name)"
+Write-Output "🔄 Status: $($runner.status)"
+Write-Output "🏃 Busy  : $($runner.busy)"
+
+# --- Decide action ---
+if ($runner.status -eq "online" -and $runner.busy -eq $true) {
+    Write-Output "🛠️ Runner is currently executing a job. Shutdown aborted."
+} else {
+    Write-Output "🛑 Runner is idle or offline. Shutting down the instance..."
+    shutdown /s /t 0
+}

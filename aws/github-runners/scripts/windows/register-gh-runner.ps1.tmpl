@@ -1,0 +1,56 @@
+try {
+    # Try to get a token (IMDSv2)
+    $token = Invoke-RestMethod -Method PUT -Uri "http://169.254.169.254/latest/api/token" `
+        -Headers @{ "X-aws-ec2-metadata-token-ttl-seconds" = "21600" }
+
+    # Use the token to get the instance ID
+    $instanceId = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id" `
+        -Headers @{ "X-aws-ec2-metadata-token" = $token }
+}
+catch {
+    # Fall back to IMDSv1 if token not required
+    $instanceId = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id"
+}
+
+Write-Output "Instance ID: $instanceId"
+
+# === CONFIGURATION ===
+$repo = "herondlabs/herond-browser"         # Format: org/repo (e.g. herondlabs/herond-browser)
+$runnerDir = "C:\actions-runner"
+$githubPAT = $env:GITHUB_PAT         # Must be set in your environment
+
+# === GITHUB HEADERS ===
+$headers = @{
+  Authorization = "Bearer $githubPAT"
+  Accept = "application/vnd.github+json"
+  "X-GitHub-Api-Version" = "2022-11-28"
+}
+
+# === PRE-CLEANUP (optional) ===
+if (Test-Path "$runnerDir\.runner") {
+  Write-Host "🧹 Removing existing .runner config..."
+  Remove-Item "$runnerDir\.runner" -Recurse -Force
+}
+
+# === FETCH REGISTRATION TOKEN ===
+$tokenUrl = "https://api.github.com/repos/$repo/actions/runners/registration-token"
+
+try {
+  $response = Invoke-RestMethod -Uri $tokenUrl -Method POST -Headers $headers
+  $runnerToken = $response.token
+  Write-Host "✅ Got registration token"
+} catch {
+  Write-Error "❌ Failed to get runner token: $_"
+  exit 1
+}
+
+# === REGISTER RUNNER ===
+Set-Location $runnerDir
+
+cmd /c "config.cmd --unattended --replace --url https://github.com/$repo --token $runnerToken --name $instanceId --labels $instanceId --work _work"
+
+Write-Host "🎉 Runner '$instanceId' registered successfully!"
+
+# === START RUNNER ===
+cmd /c "run.cmd"
+Write-Host "🚀 Runner started..."
