@@ -41,3 +41,6 @@ terraform.rc
 
 # Ignore macOS .DS_Store
 *.DS_Store
+
+# Graphify generated artifacts
+graphify-out/

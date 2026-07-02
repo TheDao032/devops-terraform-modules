@@ -2,18 +2,10 @@ global:
   enabled: true
   tlsDisable: false
 
-injector:
-  enabled: true
-  externalVaultAddr: ${parameters.common.external_vault_addr}
-  # Use the Vault K8s Image https://github.com/hashicorp/vault-k8s/
-
-  resources:
-    requests:
-      memory: ${parameters.injector_conf.rq_mem}
-      cpu: ${parameters.injector_conf.rq_cpu}
-    limits:
-      memory: ${parameters.injector_conf.limits_mem}
-      cpu: ${parameters.injector_conf.limits_cpu}
+## injector:
+##   enabled: true
+##   externalVaultAddr: ${parameters.common.external_vault_addr}
+##   # Use the Vault K8s Image https://github.com/hashicorp/vault-k8s/
 
 server:
   ingress:
@@ -27,119 +19,45 @@ server:
         paths:
           - /
 
-  # For HA configuration and because we need to manually init the vault,
-  # we need to define custom readiness/liveness Probe settings
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+      disable_mlock = true
+      api_addr = "[::]:8200"
+      cluster_addr = "[::]:8201"
+
+      listener "tcp" {
+        tls_disable = 1
+        address     = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+
+      storage "file" {
+        path = "/vault/data"
+      }
+
   readinessProbe:
     enabled: true
-    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+    path: /v1/sys/health?standbyok=true
   livenessProbe:
     enabled: true
-    path: "/v1/sys/health?standbyok=true"
-    initialDelaySeconds: 60
-
-  # extraEnvironmentVars is a list of extra environment variables to set with the stateful set. These could be
-  # used to include variables required for auto-unseal.
-  extraEnvironmentVars:
-    VAULT_CACERT: /vault/userconfig/${parameters.common.vault_tls_ca_name}/tls.crt
-
-  # extraVolumes is a list of extra volumes to mount. These will be exposed
-  # to Vault in the path `/vault/userconfig/<name>/`.
-  extraVolumes:
-    - type: secret
-      name: ${parameters.common.vault_tls_server_name}
-    - type: secret
-      name: ${parameters.common.vault_tls_ca_name}
-
-  standalone:
-    enabled: false
-    config: |
-      ui = true
-      disable_mlock = true
-      api_addr = "[::]:8200"
-      cluster_addr = "[::]:8201"
-
-      listener "tcp" {
-        tls_disable = 0
-        address     = "[::]:8200"
-        cluster_address = "[::]:8201"
-        tls_cert_file = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.crt"
-        tls_key_file = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.key"
-        tls_min_version = "tls12"
-      }
-
-      seal "transit" {
-        address     = "${parameters.common.vault_server_url}"
-        token       = "${parameters.common.vault_server_token}"
-        disable_renewal = "false"
-        key_name = "autounseal"
-        mount_path = "transit/"
-        tls_skip_verify = "true"
-      }
-
-      storage "consul" {
-        path = "vault"
-        address = "${parameters.common.consul_server_url}"
-      }
-
-
-  # Run Vault in "HA" mode.
-  ha:
-    enabled: true
-    replicas: 1
-    config: |
-      ui = true
-      disable_mlock = true
-      api_addr = "[::]:8200"
-      cluster_addr = "[::]:8201"
-
-      listener "tcp" {
-        tls_disable = 0
-        address     = "[::]:8200"
-        cluster_address = "[::]:8201"
-        tls_cert_file = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.crt"
-        tls_key_file = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.key"
-        tls_min_version = "tls12"
-      }
-
-      seal "transit" {
-        address     = "${parameters.common.vault_server_url}"
-        token       = "${parameters.common.vault_server_token}"
-        disable_renewal = "false"
-        key_name = "autounseal"
-        mount_path = "transit/"
-        tls_skip_verify = "true"
-      }
-
-      storage "consul" {
-        path = "vault"
-        address = "${parameters.common.consul_server_url}"
-      }
-
-  resources:
-    requests:
-      memory: ${parameters.server_conf.rq_mem}
-      cpu: ${parameters.server_conf.rq_cpu}
-    limits:
-      memory: ${parameters.server_conf.limits_mem}
-      cpu: ${parameters.server_conf.limits_cpu}
-
-  persistentVolumeClaimRetentionPolicy:
-    whenDeleted: Retain
-    whenScaled: Retain
+    path: /v1/sys/health?standbyok=true
+    initialDelaySeconds: 50
 
   dataStorage:
     enabled: true
-    size: ${parameters.server_conf.datastore_size}
-    mountPath: ${parameters.server_conf.datastore_mount_path}
+    size: ${parameters.server.datastore_size}
+    mountPath: ${parameters.server.datastore_mount_path}
     storrageClass: ${parameters.common.sc_name}
 
   auditStorage:
     enabled: true
-    size: ${parameters.server_conf.auditstore_size}
+    size: ${parameters.server.auditstore_size}
     # Location where the PVC will be mounted.
-    mountPath: ${parameters.server_conf.auditstore_mount_path}
+    mountPath: ${parameters.server.auditstore_mount_path}
     storrageClass: ${parameters.common.sc_name}
 
 # Vault UI
 ui:
-  enabled: ${parameters.ui_conf.enabled}
+  enabled: ${parameters.ui.enabled}
