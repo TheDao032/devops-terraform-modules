@@ -111,11 +111,11 @@ inputs = {
 }
 ```
 
-### Bootstrap-cluster leaf using `on-prem/k3s` (recommended)
+### Bootstrap-cluster leaf using `on-prem/k3s-resources` (recommended)
 
 ```hcl
 terraform {
-  source = "../../../../../devops-terraform-modules//on-prem/k3s"
+  source = "../../../../../devops-terraform-modules//on-prem/k3s-resources"
 }
 
 inputs = {
@@ -130,7 +130,7 @@ inputs = {
 }
 ```
 
-The `on-prem/k3s` module calls the helm meta-module 6× internally with
+The `on-prem/k3s-resources` module calls the helm meta-module 6× internally with
 each `*_conf` block, plus passes outputs (e.g. `argocd_server_url`) to
 downstream modules like `argocd-image-updater`.
 
