@@ -56,6 +56,12 @@ variable "external_secrets_conf" {
   default     = {}
 }
 
+variable "cert_manager_conf" {
+  description = "Configuration for cert-manager (controller + CRDs; self-signed issuers)"
+  type        = map(any)
+  default     = {}
+}
+
 variable "tags" {
   description = "Tags"
   type        = map(any)

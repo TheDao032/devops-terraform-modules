@@ -1,8 +1,8 @@
 locals {
-  cert_manager_value_file       = "${path.module}/templates/values.yml.tftpl"
-  letsencrypt_value_file        = "${path.module}/templates/letsencrypt.yml.tftpl"
-  cloudflare_secret_value_file  = "${path.module}/templates/cloudflare-secret.yml.tftpl"
-  certificate_secret_value_file = "${path.module}/templates/certificate.yml.tftpl"
+  cert_manager_value_file       = "${path.module}/acme/values.yml.tftpl"
+  letsencrypt_value_file        = "${path.module}/acme/letsencrypt.yml.tftpl"
+  cloudflare_secret_value_file  = "${path.module}/acme/cloudflare-secret.yml.tftpl"
+  certificate_secret_value_file = "${path.module}/acme/certificate.yml.tftpl"
   issuer_name                   = "letsencrypt-staging"
   cert_manager_secrets          = "letsencrypt-staging"
 }
@@ -24,6 +24,12 @@ resource "helm_release" "cert_manager" {
   ] : null)
 }
 
+# --- TEMPORARILY DISABLED: Cloudflare secret + Let's Encrypt ClusterIssuer + ACME
+#     certificate. No CLOUDFLARE_API_TOKEN available, and the controller + CRDs from the
+#     helm_release above are enough for self-signed issuers. Re-enable this block when
+#     public (ACME) certs are needed. Locals/vars above are kept intact so callers that
+#     still pass `email` (bosch/renesas) don't break. ---
+/*
 resource "kubectl_manifest" "cloudflare_secrets" {
   yaml_body = templatefile(
     local.cloudflare_secret_value_file,
@@ -60,3 +66,4 @@ resource "kubectl_manifest" "certificate" {
 
   depends_on = [helm_release.cert_manager]
 }
+*/

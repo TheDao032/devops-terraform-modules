@@ -1,5 +1,5 @@
 # locals {
-#   traefik_rbac_value_file = "${path.module}/templates/traefik_rbac.yml.tmpl"
+#   traefik_rbac_value_file = "${path.module}/templates/traefik_rbac.yml.tftpl"
 #   traefik_sac_name        = "terraform-traefik"
 #   traefik_namespace       = "kube-system"
 # }

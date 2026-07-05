@@ -1,0 +1,79 @@
+# cert-manager TLS material for the HA-Raft Vault.
+#
+# Applied PRE-helm_release (see shared/helm/main.tf `kubectl_manifest.tls`) so the
+# server Secret exists before the Vault StatefulSet mounts it. Requires cert-manager
+# (CRDs + controller) to already be running in the cluster.
+#
+# Chain: selfSigned Issuer -> CA Certificate -> CA Issuer -> server Certificate.
+# The server Certificate's Secret (${parameters.common.vault_tls_server_name}) carries
+# tls.crt + tls.key + ca.crt; Vault mounts only that one secret.
+#
+# SANs cover EVERY name Vault is reached by, or Raft retry_join over TLS fails:
+#   - <svc>-0/1/2.<svc>-internal  (Raft peer join addresses) via the *.<svc>-internal wildcard
+#   - <svc>, <svc>-active, <svc>-standby  (+ .svc.cluster.local FQDNs)
+#   - the ingress host
+#   - 127.0.0.1  (liveness/readiness probe on localhost)
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ${parameters.common.vault_service_name}-selfsigned
+  namespace: ${namespace}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ${parameters.common.vault_tls_ca_name}
+  namespace: ${namespace}
+spec:
+  isCA: true
+  commonName: ${parameters.common.vault_service_name}-ca
+  secretName: ${parameters.common.vault_tls_ca_name}
+  duration: 87600h    # 10y
+  renewBefore: 720h   # 30d
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: ${parameters.common.vault_service_name}-selfsigned
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ${parameters.common.vault_service_name}-ca-issuer
+  namespace: ${namespace}
+spec:
+  ca:
+    secretName: ${parameters.common.vault_tls_ca_name}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ${parameters.common.vault_tls_server_name}
+  namespace: ${namespace}
+spec:
+  secretName: ${parameters.common.vault_tls_server_name}
+  duration: 8760h     # 1y
+  renewBefore: 720h   # 30d
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  commonName: ${parameters.common.vault_service_name}
+  dnsNames:
+    - ${parameters.common.vault_service_name}
+    - ${parameters.common.vault_service_name}.${namespace}.svc.cluster.local
+    - ${parameters.common.vault_service_name}-active
+    - ${parameters.common.vault_service_name}-active.${namespace}.svc.cluster.local
+    - ${parameters.common.vault_service_name}-standby
+    - "*.${parameters.common.vault_service_name}-internal"
+    - "*.${parameters.common.vault_service_name}-internal.${namespace}.svc.cluster.local"
+    - ${parameters.common.host}
+  ipAddresses:
+    - 127.0.0.1
+  issuerRef:
+    name: ${parameters.common.vault_service_name}-ca-issuer
+    kind: Issuer
+    group: cert-manager.io

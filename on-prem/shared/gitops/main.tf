@@ -1,15 +1,15 @@
 locals {
-  helm_app_file = "${path.module}/apps/${var.name}/application.helm.yml.tmpl"
+  helm_app_file = "${path.module}/apps/${var.name}/application.helm.yml.tftpl"
   app_created   = fileexists(local.helm_app_file) ? var.enabled : 0
 
-  ex_secret_value_file = "${path.module}/apps/${var.name}/ex-secrets.yml.tmpl"
+  ex_secret_value_file = "${path.module}/apps/${var.name}/ex-secrets.yml.tftpl"
   ex_secret_created    = fileexists(local.ex_secret_value_file) ? var.enabled : 0
 
-  namespace_value_file = "${path.module}/apps/${var.name}/namespace.yml.tmpl"
+  namespace_value_file = "${path.module}/apps/${var.name}/namespace.yml.tftpl"
   namespace_created    = fileexists(local.namespace_value_file) ? var.enabled : 0
 
   # templates_path    = "${path.module}/apps/${var.name}/templates"
-  # templates         = fileset(local.templates_path, "*.yml.tmpl")
+  # templates         = fileset(local.templates_path, "*.yml.tftpl")
   # templates_enabled = length(local.templates) > 0 ? length(local.templates) : 0
 
   # serviceaccount_file = "${path.module}/charts/${var.name}/serviceaccount.json"

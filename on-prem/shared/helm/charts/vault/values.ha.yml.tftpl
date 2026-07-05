@@ -2,18 +2,14 @@ global:
   enabled: true
   tlsDisable: false
 
+# Vault Agent Injector — DISABLED on purpose.
+# This deploys an IN-CLUSTER HA Vault server (the `server:` block below) and uses
+# External Secrets Operator (ESO) for secret sync, not the injector. `externalVaultAddr`
+# belongs ONLY to the "External Vault" mode (injector → a Vault OUTSIDE the cluster,
+# with NO server block) — don't mix it with an in-cluster server. Re-enable WITHOUT
+# externalVaultAddr only if some workloads need Agent sidecars.
 injector:
-  enabled: true
-  externalVaultAddr: http://external-vault:8200
-  # Use the Vault K8s Image https://github.com/hashicorp/vault-k8s/
-
-  resources:
-    requests:
-      memory: ${injector_conf.resources.rq_mem}
-      cpu: ${injector_conf.resources.rq_cpu}
-    limits:
-      memory: ${injector_conf.resources.limits_mem}
-      cpu: ${injector_conf.resources.limits_cpu}
+  enabled: false
 
 server:
   ingress:
@@ -60,7 +56,7 @@ server:
   # Run Vault in "HA" mode.
   ha:
     enabled: true
-    replicas: 1
+    replicas: 1   # ⚠ 1 replica is NOT highly-available — use an odd quorum (3) for real HA
     config: |
       ui = true
       disable_mlock = true
@@ -105,14 +101,14 @@ server:
     enabled: true
     size: ${server_conf.datastore.size}
     mountPath: ${server_conf.datastore.mount_path}
-    storrageClass: ${storage_class_name}
+    storageClass: ${storage_class_name}
 
   auditStorage:
     enabled: true
     size: ${server_conf.auditstore.size}
     # Location where the PVC will be mounted.
     mountPath: ${server_conf.auditstore.mount_path}
-    storrageClass: ${storage_class_name}
+    storageClass: ${storage_class_name}
 
 # Vault UI
 ui:

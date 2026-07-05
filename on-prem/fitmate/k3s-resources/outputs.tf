@@ -2,6 +2,6 @@
 #   value = module.external-secrets.filtered_secret_store_name
 # }
 
-output "argocd_namespace" {
-  value = module.argocd.argocd_namespace
-}
+# output "argocd_namespace" {
+#   value = module.argocd.argocd_namespace
+# }

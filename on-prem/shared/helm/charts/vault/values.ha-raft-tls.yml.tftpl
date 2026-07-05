@@ -1,0 +1,135 @@
+global:
+  enabled: true
+  tlsDisable: false
+
+# Vault Agent Injector — DISABLED on purpose.
+# This deploys an IN-CLUSTER HA Vault (Raft integrated storage) and consumes secrets
+# via External Secrets Operator (ESO), not the injector. `externalVaultAddr` belongs
+# ONLY to the "External Vault" mode (injector -> a Vault OUTSIDE the cluster, with NO
+# server block); don't mix it here. Re-enable WITHOUT externalVaultAddr only if some
+# workloads need Vault Agent sidecars.
+injector:
+  enabled: false
+
+server:
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+      # Vault's listener speaks HTTPS on 8200, so Traefik must reach the backend
+      # over HTTPS (its default is plain http). Without this the ingress route 502s.
+      traefik.ingress.kubernetes.io/service.serversscheme: "https"
+    ingressClassName: "traefik"
+    hosts:
+      - host: ${parameters.common.host}
+        paths:
+          - /
+
+  # HA needs manual init; custom probes so standby/uninitialized pods report correctly.
+  readinessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+  livenessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true"
+    initialDelaySeconds: 60
+
+  # cert-manager issues ONE secret (${parameters.common.vault_tls_server_name}) holding
+  # tls.crt (leaf) + tls.key + ca.crt (the issuing CA). We mount only that secret and
+  # point VAULT_CACERT at its ca.crt — no need to mount the CA PRIVATE key into Vault.
+  extraEnvironmentVars:
+    VAULT_CACERT: /vault/userconfig/${parameters.common.vault_tls_server_name}/ca.crt
+
+  # TLS material mounted at /vault/userconfig/<secret-name>/
+  extraVolumes:
+    - type: secret
+      name: ${parameters.common.vault_tls_server_name}
+
+  standalone:
+    enabled: false
+
+  # ── HA with INTEGRATED STORAGE (Raft) + TLS ──────────────────────────────────
+  # No external Consul dependency: Vault replicates its own data across the pods'
+  # PVs via a Raft quorum. api_addr/cluster_addr are auto-set by the chart
+  # (VAULT_API_ADDR / VAULT_CLUSTER_ADDR env vars per pod), so they're omitted here.
+  ha:
+    enabled: true
+    replicas: 3            # odd quorum for HA (3 or 5); 1 = NOT HA
+    raft:
+      enabled: true
+      setNodeId: true      # unique node_id per pod (derived from the pod name)
+      config: |
+        ui = true
+        disable_mlock = true        # required with integrated storage (Raft mmaps its data)
+        cluster_name = "vault-integrated-storage"
+
+        listener "tcp" {
+          tls_disable     = 0
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_cert_file   = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.crt"
+          tls_key_file    = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.key"
+          tls_min_version = "tls12"
+        }
+
+        storage "raft" {
+          path = "${parameters.server.datastore_mount_path}"
+
+          retry_join {
+            leader_api_addr         = "https://${parameters.common.vault_service_name}-0.${parameters.common.vault_service_name}-internal:8200"
+            leader_ca_cert_file     = "/vault/userconfig/${parameters.common.vault_tls_server_name}/ca.crt"
+            leader_client_cert_file = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.crt"
+            leader_client_key_file  = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.key"
+          }
+          retry_join {
+            leader_api_addr         = "https://${parameters.common.vault_service_name}-1.${parameters.common.vault_service_name}-internal:8200"
+            leader_ca_cert_file     = "/vault/userconfig/${parameters.common.vault_tls_server_name}/ca.crt"
+            leader_client_cert_file = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.crt"
+            leader_client_key_file  = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.key"
+          }
+          retry_join {
+            leader_api_addr         = "https://${parameters.common.vault_service_name}-2.${parameters.common.vault_service_name}-internal:8200"
+            leader_ca_cert_file     = "/vault/userconfig/${parameters.common.vault_tls_server_name}/ca.crt"
+            leader_client_cert_file = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.crt"
+            leader_client_key_file  = "/vault/userconfig/${parameters.common.vault_tls_server_name}/tls.key"
+          }
+        }
+
+        # Seal: Shamir (default) — NO `seal` stanza, on purpose. Vault is initialized
+        # once (`vault operator init` -> 5 key shares, threshold 3) and MANUALLY
+        # unsealed on each pod restart. To move to auto-unseal later, add a
+        # `seal "transit"` (or "awskms"/"gcpckms"/"azurekeyvault") stanza here — see
+        # 30-references/vault-auto-unseal-methods in the vault brain.
+
+        # Register active/standby with k8s Services so clients hit the leader.
+        service_registration "kubernetes" {}
+
+  resources:
+    requests:
+      memory: ${parameters.server.rq_mem}
+      cpu: ${parameters.server.rq_cpu}
+    limits:
+      memory: ${parameters.server.limits_mem}
+      cpu: ${parameters.server.limits_cpu}
+
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+
+  # Raft data PVC — mountPath MUST equal the storage "raft" path above.
+  dataStorage:
+    enabled: true
+    size: ${parameters.server.datastore_size}
+    mountPath: ${parameters.server.datastore_mount_path}
+    storageClass: ${parameters.common.sc_name}
+
+  auditStorage:
+    enabled: true
+    size: ${parameters.server.auditstore_size}
+    mountPath: ${parameters.server.auditstore_mount_path}
+    storageClass: ${parameters.common.sc_name}
+
+# Vault UI
+ui:
+  enabled: ${parameters.ui.enabled}

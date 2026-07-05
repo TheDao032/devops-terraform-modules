@@ -28,6 +28,11 @@ variable "chart_version" {
   type = string
 }
 
+variable "values_type" {
+  type    = string
+  default = null
+}
+
 variable "parameters" {
   description = "Chart's parameters"
   type        = map(any)
@@ -39,7 +44,6 @@ variable "tags" {
   type        = map(any)
   default     = {}
 }
-
 
 variable "host" {
   type = string

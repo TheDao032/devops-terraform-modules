@@ -1,5 +1,5 @@
 locals {
-  policies_tmp_file = "${path.module}/templates/policies/policies.hcl.tmpl"
+  policies_tmp_file = "${path.module}/templates/policies/policies.hcl.tftpl"
 }
 
 resource "vault_policy" "main" {

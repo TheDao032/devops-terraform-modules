@@ -15,6 +15,6 @@ variable "parameters" {
 }
 
 variable "jenkins_plugins" {
-  type = map(any)
+  type    = map(any)
   default = {}
 }

@@ -1,0 +1,9 @@
+# Controller-only cert-manager values, for the GENERIC helm module.
+#
+# This installs just the cert-manager controller + CRDs — enough for SELF-SIGNED
+# issuers (e.g. Vault ha-raft-tls uses a selfSigned Issuer in vault/tls.yml.tmpl).
+# It deliberately has NO ACME / Let's Encrypt / Cloudflare config — that lives in the
+# self-contained charts/cert-manager/main.tf module (used by other tenants' units for
+# public certs) and requires a CLOUDFLARE_API_TOKEN, which makes no sense on local k3s.
+crds:
+  enabled: true   # install CRDs with the chart (cert-manager >= v1.15 syntax)

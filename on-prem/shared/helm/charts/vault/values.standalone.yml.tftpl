@@ -49,14 +49,14 @@ server:
     enabled: true
     size: ${parameters.server.datastore_size}
     mountPath: ${parameters.server.datastore_mount_path}
-    storrageClass: ${parameters.common.sc_name}
+    storageClass: ${parameters.common.sc_name}
 
   auditStorage:
     enabled: true
     size: ${parameters.server.auditstore_size}
     # Location where the PVC will be mounted.
     mountPath: ${parameters.server.auditstore_mount_path}
-    storrageClass: ${parameters.common.sc_name}
+    storageClass: ${parameters.common.sc_name}
 
 # Vault UI
 ui:

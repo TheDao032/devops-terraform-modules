@@ -37,7 +37,10 @@ variable "cloudflare_secret_name" {
   default     = "cloudflare-api-token-secret"
 }
 
+# ACME/Cloudflare resources are temporarily disabled in main.tf. Default "" keeps this
+# optional so units don't have to supply a token while ACME is off.
 variable "cloudflare_api_token" {
   description = "Cloudflare api secret token"
   type        = string
+  default     = ""
 }

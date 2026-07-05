@@ -10,7 +10,7 @@ locals {
 }
 
 module "pod-restart-collector" {
-  source                 = "../gitops"
+  source                 = "../../shared/gitops"
   enabled                = local.disabled
   environment            = var.environment
   name                   = local.pod_res_col_common.app_name

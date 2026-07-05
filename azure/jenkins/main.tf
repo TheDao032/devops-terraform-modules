@@ -1,6 +1,6 @@
 locals {
-  value_file         = "${path.module}/values.yaml.tmpl"
-  sc_value_file      = "${path.module}/sc.yaml.tmpl"
+  value_file         = "${path.module}/values.yaml.tftpl"
+  sc_value_file      = "${path.module}/sc.yaml.tftpl"
   storage_class_name = "jenkins-disk-rancher"
 }
 
