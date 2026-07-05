@@ -1,6 +1,9 @@
 locals {
-  coredns_helm   = var.coredns_conf.helm
-  coredns_common = var.coredns_conf.common
+  # CoreDNS is managed by k3s itself (rancher/mirrored-coredns-coredns:1.11.3) since the lab
+  # no longer passes --disable=coredns. The terraform core-dns module below is commented out
+  # so it doesn't fight k3s for the kube-system coredns/kube-dns resources.
+  # coredns_helm   = var.coredns_conf.helm
+  # coredns_common = var.coredns_conf.common
 
   cert_manager_helm   = var.cert_manager_conf.helm
   cert_manager_common = var.cert_manager_conf.common
@@ -51,6 +54,9 @@ locals {
   # ]
 }
 
+# CoreDNS is managed by k3s (see note in locals). Disabled here to avoid a Helm-vs-k3s
+# ownership conflict on the kube-system coredns/kube-dns resources.
+/*
 module "core-dns" {
   source                 = "../../shared/helm"
   enabled                = local.enabled
@@ -69,6 +75,7 @@ module "core-dns" {
     common = local.coredns_common
   }
 }
+*/
 
 module "cert-manager" {
   source                 = "../../shared/helm"
