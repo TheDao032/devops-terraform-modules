@@ -1,0 +1,33 @@
+---
+# HTTPRoute — identical to the Traefik one: Gateway API is controller-agnostic, so the
+# route just references its Gateway by name/section (which controller backs that Gateway is
+# decided by the Gateway's gatewayClassName, not here). This is the whole point of Gateway
+# API — the same routes work under Traefik or NGINX Gateway Fabric.
+#
+# Expected `route` object:
+#   name, namespace, gateway_name, gateway_namespace, section_name,
+#   hostnames (list), path_prefix, backend_name, backend_port
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ${route.name}
+  namespace: ${namespace}
+spec:
+  parentRefs:
+    - kind: Gateway
+      name: ${route.gateway_name}
+      namespace: ${route.gateway_namespace}
+      sectionName: ${route.section_name}
+  hostnames:
+%{ for h in route.hostnames ~}
+    - "${h}"
+%{ endfor ~}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: ${route.path_prefix}
+      backendRefs:
+        - kind: Service
+          name: ${route.backend_name}
+          port: ${route.backend_port}

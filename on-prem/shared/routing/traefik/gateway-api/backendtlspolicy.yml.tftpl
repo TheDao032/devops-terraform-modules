@@ -1,0 +1,27 @@
+---
+# BackendTLSPolicy — tells the Gateway how to make the TLS connection to a backend Service
+# (re-encryption). This is the Gateway-API-native replacement for a Traefik ServersTransport.
+# Rendered per entry in parameters.routing.backend_tls_policies.
+#
+# apiVersion v1: served/storage version of the CRD shipped by traefik-crds 1.18.0
+#   (Gateway API v1.5.1 standard channel; v1alpha3 is present but not served).
+# caCertificateRefs kind: Secret requires Traefik >= v3.7.0 (we run v3.7.6) — lets us point
+#   straight at the cert-manager tls Secret (which carries ca.crt) with no ConfigMap copy.
+#
+# Expected `policy` object: name, namespace, service_name, ca_secret_name, hostname
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: ${policy.name}
+  namespace: ${namespace}
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: ${policy.service_name}
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: Secret
+        name: ${policy.ca_secret_name}
+    hostname: "${policy.hostname}"

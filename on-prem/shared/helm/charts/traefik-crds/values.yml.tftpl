@@ -1,0 +1,20 @@
+# traefik-crds chart (pinned 1.18.0) — installs the CRDs for the self-managed Traefik v3.
+#
+# We deploy this as its OWN release, BEFORE the main traefik chart, so the Gateway API CRDs
+# exist before Traefik's Gateway provider starts (otherwise the chart's Gateway/GatewayClass
+# resources fail to render). It owns BOTH CRD sets; the main traefik chart's bundled crds/
+# are then no-ops (Helm skips CRDs that already exist).
+#
+# No ${...} interpolation here — these are static toggles (the generic helm module still
+# renders this through templatefile, which is a harmless pass-through).
+
+# Traefik's own CRDs (traefik.io group: IngressRoute, Middleware, ServersTransport, ...).
+enabled: true
+
+# Standard-channel Gateway API CRDs (Gateway, GatewayClass, HTTPRoute, GRPCRoute, TLSRoute,
+# ReferenceGrant, and — the reason we're here — BackendTLSPolicy). BackendTLSPolicy is
+# Standard channel as of Gateway API v1.2, so the experimental set is NOT required.
+gatewayAPI: true
+
+# Experimental-channel CRDs (adds TCPRoute etc.). Not needed — leave off.
+gatewayAPIExperimental: false

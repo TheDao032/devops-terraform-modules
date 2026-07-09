@@ -8,6 +8,24 @@ locals {
   cert_manager_helm   = var.cert_manager_conf.helm
   cert_manager_common = var.cert_manager_conf.common
 
+  # Self-managed Traefik v3 (bundled Traefik disabled via --disable=traefik). traefik-crds
+  # installs the Traefik + Gateway API CRDs first; the traefik release then brings up the
+  # controller + a default GatewayClass/Gateway.
+  traefik_crds_helm   = var.traefik_crds_conf.helm
+  traefik_crds_common = var.traefik_crds_conf.common
+
+  traefik_helm   = var.traefik_conf.helm
+  traefik_common = var.traefik_conf.common
+
+  # Gateway API routes (HTTPRoute + BackendTLSPolicy) served by the self-managed Traefik v3.
+  routing_route_type           = var.routing_conf.route_type
+  routing_namespace            = var.routing_conf.namespace
+  routing_httproutes           = var.routing_conf.httproutes
+  routing_backend_tls_policies = var.routing_conf.backend_tls_policies
+  routing_dashboard_routes     = var.routing_conf.dashboard_routes
+  # gateways: empty for Traefik (its chart makes the Gateway); set for nginx/NGF.
+  routing_gateways = try(var.routing_conf.gateways, [])
+
   vault_helm   = var.vault_conf.helm
   vault_server = var.vault_conf.server
   vault_ui     = var.vault_conf.ui
@@ -97,6 +115,82 @@ module "cert-manager" {
   }
 }
 
+# Gateway API + Traefik CRDs. Must land BEFORE the traefik release so its Gateway/
+# GatewayClass resources can render, and before any HTTPRoute/BackendTLSPolicy.
+module "traefik-crds" {
+  source                 = "../../shared/helm"
+  enabled                = local.enabled
+  environment            = var.environment
+  name                   = local.traefik_crds_helm.release_name
+  namespace              = local.traefik_crds_helm.namespace
+  repository             = local.traefik_crds_helm.repository
+  chart_version          = local.traefik_crds_helm.chart_version
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    common = local.traefik_crds_common
+  }
+}
+
+# Traefik v3 controller + default GatewayClass/Gateway (self-managed; replaces bundled v2.11).
+module "traefik" {
+  source                 = "../../shared/helm"
+  enabled                = local.enabled
+  environment            = var.environment
+  name                   = local.traefik_helm.release_name
+  namespace              = local.traefik_helm.namespace
+  repository             = local.traefik_helm.repository
+  chart_version          = local.traefik_helm.chart_version
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    common = local.traefik_common
+  }
+
+  depends_on = [module.traefik-crds]
+}
+
+# ── ALTERNATIVE data plane: NGINX Gateway Fabric (Gateway API) ──────────────────
+# Ready-but-inactive. Traefik is the active controller; this is here so you can swap to
+# nginx "just in case". Because both are Gateway API, the HTTPRoutes + BackendTLSPolicy are
+# unchanged — only the Gateway's gatewayClassName differs.
+#
+# To switch Traefik -> nginx:
+#   1. Comment out module "traefik" (keep module "traefik-crds" — the Gateway API CRDs are
+#      shared and controller-agnostic).
+#   2. Uncomment this module + the nginx_conf input in terragrunt.hcl.
+#   3. In routing_conf: set route_type = "nginx" and add a `gateways` entry (NGF makes no
+#      Gateway of its own), then point each httproute's gateway_name/namespace at it.
+# NGF creates GatewayClass "nginx"; it provisions a data-plane + LoadBalancer per Gateway.
+#
+# module "nginx-gateway-fabric" {
+#   source                 = "../../shared/helm"
+#   enabled                = local.enabled
+#   environment            = var.environment
+#   name                   = var.nginx_conf.helm.release_name # must equal the OCI chart name
+#   namespace              = var.nginx_conf.helm.namespace
+#   repository             = var.nginx_conf.helm.repository    # oci://ghcr.io/nginx/charts
+#   chart_version          = var.nginx_conf.helm.chart_version # 2.6.6 (app 2.6.6)
+#   host                   = var.host
+#   client_key             = var.client_key
+#   client_certificate     = var.client_certificate
+#   cluster_ca_certificate = var.cluster_ca_certificate
+#   token                  = var.token
+#   tags                   = var.tags
+#   parameters = {
+#     common = var.nginx_conf.common
+#   }
+#   depends_on = [module.traefik-crds] # Gateway API CRDs must exist first
+# }
+
 module "vault" {
   source                 = "../../shared/helm"
   enabled                = local.enabled
@@ -140,6 +234,34 @@ module "external-secrets" {
   parameters = {
     common = local.external_secrets_common
   }
+}
+
+# Gateway API routes on the self-managed Traefik v3: HTTPRoutes + BackendTLSPolicy for the
+# UIs (e.g. Vault). Applied AFTER traefik (Gateway/GatewayClass + CRDs) and vault (so the
+# vault-active Service + cert-manager CA Secret exist). Enabled by removing the module-local
+# kubectl provider block (see routing/providers.tf) so depends_on is allowed.
+module "gateway-routes" {
+  source                 = "../../shared/routing"
+  enabled                = local.enabled
+  environment            = var.environment
+  namespace              = local.routing_namespace
+  route_type             = local.routing_route_type
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    routing = {
+      gateways             = local.routing_gateways
+      httproutes           = local.routing_httproutes
+      backend_tls_policies = local.routing_backend_tls_policies
+      dashboard_routes     = local.routing_dashboard_routes
+    }
+  }
+
+  depends_on = [module.traefik, module.vault]
 }
 
 # module "reloader" {
@@ -260,8 +382,8 @@ module "external-secrets" {
 #   }
 # }
 
-# module "argocd-router" {
-#   source                 = "../router"
+# module "argocd-routing" {
+#   source                 = "../routing"
 #   enabled                = local.disabled
 #   environment            = var.environment
 #   namespace              = local.argocd_helm.namespace
@@ -272,6 +394,6 @@ module "external-secrets" {
 #   token                  = var.token
 #   tags                   = var.tags
 #   parameters = {
-#     router = local.argocd_router
+#     routing = local.argocd_routing
 #   }
 # }

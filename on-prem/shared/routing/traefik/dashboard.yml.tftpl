@@ -1,0 +1,26 @@
+---
+# Traefik dashboard via IngressRoute.
+# The dashboard is `api@internal` — a Traefik-internal service, NOT a Kubernetes Service —
+# so it can't be a Gateway API HTTPRoute backendRef (those must point at a real Service).
+# This is the Traefik-native exposure: a mixed model (Gateway API for app routes,
+# IngressRoute for Traefik's own dashboard) — the same split Traefik's own docs use.
+#
+# apiVersion traefik.io/v1alpha1 (v3 group; the old traefik.containo.us was dropped in v3).
+# With api.dashboard=true and api.insecure=false (default), the dashboard is reachable ONLY
+# through a router like this one — so no insecure entrypoint is exposed.
+#
+# Expected `route` object: name, namespace, host
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ${route.name}
+  namespace: ${namespace}
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`${route.host}`)
+      kind: Rule
+      services:
+        - name: api@internal
+          kind: TraefikService

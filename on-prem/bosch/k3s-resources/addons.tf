@@ -41,7 +41,7 @@ locals {
   #   # local.middleware_headers_list,
   # )
   #
-  # argocd_router = {
+  # argocd_routing = {
   #   middleware_strip_prefixes = local.argocd_middleware_strip_prefixes
   #   middleware_combined       = local.argocd_middleware_combined
   #   ingressroutes = [
@@ -325,8 +325,8 @@ module "argocd-img-update" {
 #   }
 # }
 
-# module "argocd-router" {
-#   source                 = "../router"
+# module "argocd-routing" {
+#   source                 = "../routing"
 #   enabled                = 1
 #   environment            = var.environment
 #   namespace              = local.argocd_helm.namespace
@@ -337,6 +337,6 @@ module "argocd-img-update" {
 #   token                  = var.token
 #   tags                   = var.tags
 #   parameters = {
-#     router = local.argocd_router
+#     routing = local.argocd_routing
 #   }
 # }

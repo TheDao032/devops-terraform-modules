@@ -1,0 +1,27 @@
+---
+# Gateway (gatewayClassName: traefik). NOTE: for the current setup the TRAEFIK CHART creates
+# its own default Gateway (gateway.enabled in charts/traefik), so this template is normally
+# unused for Traefik. It's kept for symmetry with nginx and in case you prefer the routing
+# module to own the Gateway (then set gateway.enabled: false in the traefik chart values).
+#
+# gatewayClassName hard-coded to `traefik` (this template lives in the traefik/ route_type
+# dir — controller implied by location).
+#
+# Expected `gateway` object: name, namespace, listeners (list of
+#   { name, protocol, port, from }) — `from` is the allowedRoutes namespace policy.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${gateway.name}
+  namespace: ${namespace}
+spec:
+  gatewayClassName: traefik
+  listeners:
+%{ for l in gateway.listeners ~}
+    - name: ${l.name}
+      protocol: ${l.protocol}
+      port: ${l.port}
+      allowedRoutes:
+        namespaces:
+          from: ${l.from}
+%{ endfor ~}

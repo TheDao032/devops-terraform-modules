@@ -1,12 +1,19 @@
-nginx:
-  image:
-    # -- The NGINX image to use.
-    repository: ghcr.io/nginx/nginx-gateway-fabric/nginx
-    tag: ${gateway_fabric.image.tag}
-    # @schema
-    # enum:
-    #   - Always
-    #   - IfNotPresent
-    #   - Never
-    # @schema
-    pullPolicy: IfNotPresent
+# NGINX Gateway Fabric (NGF) — the NGINX implementation of the Gateway API, an ALTERNATIVE
+# data plane to the self-managed Traefik v3. Deployed from the OCI chart
+# oci://ghcr.io/nginx/charts/nginx-gateway-fabric (pinned in terragrunt) via the GENERIC
+# shared/helm module, so this file is rendered with {namespace, environment, parameters}.
+#
+# Prerequisites (shared, already satisfied): the Gateway API standard-channel CRDs must exist
+# BEFORE this installs — they're installed by the traefik-crds release. If you ever run
+# nginx-ONLY (no Traefik), install those CRDs another way (NGF's own CRD kustomize / a
+# standalone gateway-api release) instead.
+#
+# What the chart creates: the NGF control plane + a GatewayClass named "nginx"
+# (controllerName gateway.nginx.org/nginx-gateway-controller). It does NOT create a Gateway —
+# the routing module does (parameters.routing.gateways); NGF then provisions a data-plane
+# nginx Deployment + LoadBalancer Service per Gateway (Klipper assigns the IP).
+#
+# Chart defaults suit the lab; this mostly documents intent + pins the class name.
+nginxGateway:
+  # The GatewayClass this controller owns. Gateways set gatewayClassName: nginx to use it.
+  gatewayClassName: nginx

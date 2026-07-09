@@ -1,0 +1,29 @@
+---
+# Gateway (gatewayClassName: nginx). NGINX Gateway Fabric does NOT create a Gateway itself
+# (its chart only installs the controller + the `nginx` GatewayClass), so the routing module
+# creates it here. NGF then provisions a data-plane nginx Deployment + LoadBalancer Service
+# for this Gateway. Contrast with Traefik, whose chart can create its own default Gateway.
+#
+# gatewayClassName is hard-coded to `nginx` (the class NGF creates) since this template lives
+# in the nginx/ route_type dir — the controller is implied by location. If you renamed the
+# NGF GatewayClass (nginxGateway.gatewayClassName), change it here too.
+#
+# Expected `gateway` object: name, namespace, listeners (list of
+#   { name, protocol, port, from })  where `from` is the allowedRoutes namespace policy
+#   (All | Same | Selector) — use All to let routes in other namespaces attach.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${gateway.name}
+  namespace: ${namespace}
+spec:
+  gatewayClassName: nginx
+  listeners:
+%{ for l in gateway.listeners ~}
+    - name: ${l.name}
+      protocol: ${l.protocol}
+      port: ${l.port}
+      allowedRoutes:
+        namespaces:
+          from: ${l.from}
+%{ endfor ~}

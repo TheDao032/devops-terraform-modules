@@ -20,6 +20,10 @@ server:
       # Vault's listener speaks HTTPS on 8200, so Traefik must reach the backend
       # over HTTPS (its default is plain http). Without this the ingress route 502s.
       traefik.ingress.kubernetes.io/service.serversscheme: "https"
+      # ...and Traefik must be told how to trust Vault's cert-manager (private-CA) cert on
+      # that backend TLS leg, else verification fails -> 500. This points at the
+      # ServersTransport applied from templates/serverstransport.yml.tftpl.
+      traefik.ingress.kubernetes.io/service.serverstransport: "${namespace}-backend@kubernetescrd"
     ingressClassName: "traefik"
     hosts:
       - host: ${parameters.common.host}
@@ -30,10 +34,13 @@ server:
   readinessProbe:
     enabled: true
     path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+  # Liveness DISABLED (matches the Vault chart default). With Shamir (manual unseal) a pod
+  # comes up SEALED and stays sealed until we unseal it — a legitimate running state. A
+  # liveness probe at /v1/sys/health returns 503 while sealed, so kubelet SIGTERMs the pod
+  # ("Vault shutdown triggered") before it can be unsealed → CrashLoopBackOff. Readiness
+  # (sealed-tolerant, above) is enough; only re-enable liveness alongside auto-unseal.
   livenessProbe:
-    enabled: true
-    path: "/v1/sys/health?standbyok=true"
-    initialDelaySeconds: 60
+    enabled: false
 
   # cert-manager issues ONE secret (${parameters.common.vault_tls_server_name}) holding
   # tls.crt (leaf) + tls.key + ca.crt (the issuing CA). We mount only that secret and

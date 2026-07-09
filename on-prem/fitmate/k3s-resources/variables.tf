@@ -62,6 +62,30 @@ variable "cert_manager_conf" {
   default     = {}
 }
 
+variable "traefik_crds_conf" {
+  description = "Configuration for the traefik-crds chart (Traefik + Gateway API CRDs)"
+  type        = map(any)
+  default     = {}
+}
+
+variable "traefik_conf" {
+  description = "Configuration for the self-managed Traefik v3 controller"
+  type        = map(any)
+  default     = {}
+}
+
+variable "routing_conf" {
+  description = "Gateway API routes (HTTPRoutes + BackendTLSPolicy) for the Traefik v3 gateway"
+  type        = any
+  default     = {}
+}
+
+variable "nginx_conf" {
+  description = "NGINX Gateway Fabric — alternative Gateway API data plane (see commented module)"
+  type        = any
+  default     = {}
+}
+
 variable "tags" {
   description = "Tags"
   type        = map(any)
