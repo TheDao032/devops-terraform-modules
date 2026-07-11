@@ -42,7 +42,7 @@ server:
   livenessProbe:
     enabled: false
 
-  # cert-manager issues ONE secret (${parameters.common.vault_tls_server_name}) holding
+  # cert-manager issues ONE secret ($${parameters.common.vault_tls_server_name}) holding
   # tls.crt (leaf) + tls.key + ca.crt (the issuing CA). We mount only that secret and
   # point VAULT_CACERT at its ca.crt — no need to mount the CA PRIVATE key into Vault.
   extraEnvironmentVars:

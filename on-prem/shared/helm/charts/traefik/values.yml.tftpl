@@ -1,10 +1,11 @@
 # Traefik v3 (chart 41.0.2 / app v3.7.6) — self-managed ingress+gateway controller.
 #
 # Replaces the k3s-BUNDLED Traefik v2.11 (disabled via `--disable=traefik` in the lab's
-# config.yaml) so we control the version and get full Gateway API support, incl.
-# BackendTLSPolicy (re-encrypt to private-CA TLS backends like the cert-manager-issued
-# Vault). Traefik's own CRDs + the Gateway API CRDs are installed by the separate
-# traefik-crds release (charts/traefik-crds), which this release depends on.
+# config.yaml) so we control the version and get Gateway API for services deployed later.
+# CRD sources: Traefik's OWN traefik.io CRDs (IngressRoute/Middleware/ServersTransport) ship
+# in this chart's crds/ dir; the Gateway API standard CRDs come from module "gateway-api-crds"
+# (shared/crds), which this release depends_on. NOTE: Vault routes via its Ingress +
+# ServersTransport, NOT Gateway API (BackendTLSPolicy can't verify its backend, #12127).
 
 deployment:
   kind: Deployment
@@ -18,10 +19,22 @@ providers:
   # Traefik IngressRoute/Middleware CRD provider — kept (dashboard + any CRD routes).
   kubernetesCRD:
     enabled: true
-  # Plain Ingress provider — kept during migration so any not-yet-migrated Ingress
-  # (e.g. Vault's, until we flip it to an HTTPRoute) still routes. Drop once migrated.
+  # Plain Ingress provider — Vault routes through this (its Helm-chart Ingress).
   kubernetesIngress:
     enabled: true
+
+# ── Backend TLS ──────────────────────────────────────────────────────────────
+# Skip verification of backend server certs on the DEFAULT ServersTransport.
+#
+# PRIMARY mechanism for Vault is its OWN per-backend ServersTransport (charts/vault
+# templates/serverstransport.yml.tftpl, `insecureSkipVerify: true`, referenced by the Vault
+# Ingress annotation) — self-managed v3 HONORS it (unlike the broken k3s-bundled Traefik).
+# This global flag is a SAFETY NET: if that per-backend transport isn't applied for any
+# reason, Vault falls back to the default transport, which this covers. Lab-grade — it also
+# means any FUTURE HTTPS backend without its own ServersTransport skips verify by default;
+# for prod, drop this and verify per-backend (serverName + rootCAsSecrets).
+additionalArguments:
+  - "--serversTransport.insecureSkipVerify=true"
 
 # ── Default Gateway + GatewayClass ───────────────────────────────────────────
 # The chart deploys a default GatewayClass ("traefik") and a default Gateway when the
@@ -59,8 +72,9 @@ ports:
       default: true
 
 # ── Dashboard / API ──────────────────────────────────────────────────────────
-# Dashboard served internally on the 'traefik' entrypoint. We expose it via Gateway API
-# in the router layer (follow-up), NOT via the insecure IngressRoute, so leave that off.
+# Dashboard served internally (api@internal). We expose it via our OWN IngressRoute in the
+# routing layer (module "traefik-routing" → dashboard.yml.tftpl), so leave the chart's
+# built-in insecure dashboard IngressRoute OFF.
 api:
   dashboard: true
 ingressRoute:

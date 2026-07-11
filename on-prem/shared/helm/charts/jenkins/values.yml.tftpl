@@ -14,7 +14,7 @@ controller:
       ## traefik.ingress.kubernetes.io/router.tls: "true"
     hostName: ${parameters.common.hostname}
 
-  ## jenkinsUrl: ${parameters.common.hostname} ## Using this argurement when disabled ingress
+  # jenkinsUrl: $${parameters.common.hostname} ## Using this argurement when disabled ingress
   JCasC:
     securityRealm: |-
       local:

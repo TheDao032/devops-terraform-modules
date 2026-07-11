@@ -1,5 +1,5 @@
 # global:
-#   storageClass: "${keycloak.storage.class_name}"
+#   storageClass: "$${keycloak.storage.class_name}"
 
 resources:
   requests:
@@ -187,8 +187,8 @@ keycloakConfigCli:
 #   annotations:
 #     kubernetes.io/ingress.class: "traefik"
 #     traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-#     traefik.ingress.kubernetes.io/router.middlewares: ${namespace}-${keycloak.ingress.strip_prefix}@kubernetescrd
-#   path: ${keycloak.ingress.prefix}
+#     traefik.ingress.kubernetes.io/router.middlewares: $${namespace}-$${keycloak.ingress.strip_prefix}@kubernetescrd
+#   path: $${keycloak.ingress.prefix}
 #   hostname: "keycloak.local"
 #
 # adminIngress:
@@ -198,8 +198,8 @@ keycloakConfigCli:
 #   annotations:
 #     kubernetes.io/ingress.class: "traefik"
 #     traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-#     traefik.ingress.kubernetes.io/router.middlewares: ${namespace}-${keycloak.admin_ingress.strip_prefix}@kubernetescrd
-#   path: ${keycloak.admin_ingress.prefix}
+#     traefik.ingress.kubernetes.io/router.middlewares: $${namespace}-$${keycloak.admin_ingress.strip_prefix}@kubernetescrd
+#   path: $${keycloak.admin_ingress.prefix}
 #   hostname: "keycloak.admin"
 
 # stg.yaml: |
@@ -208,22 +208,22 @@ keycloakConfigCli:
 #   clients: [
 #     %{ for client in clients ~}
 #
-#     clientId: ${client.id}
-#     name: ${client.name}
-#     rootUrl: ${client.root_url}
-#     adminUrl: ${client.admin_url}
-#     baseUrl: ${client.base_url}
-#     enabled: ${client.enabled}
-#     alwaysDisplayInConsole: ${client.is_alw_display}
-#     clientAuthenticatorType: ${client.authenticator_type}
-#     secret: ${client.secret}
-#     redirectUris: ${jsonencode(client.redirect_uris)}
-#     webOrigins: ${jsonencode(client.web_origins)}
-#     protocol: ${client.protocol}
+#     clientId: $${client.id}
+#     name: $${client.name}
+#     rootUrl: $${client.root_url}
+#     adminUrl: $${client.admin_url}
+#     baseUrl: $${client.base_url}
+#     enabled: $${client.enabled}
+#     alwaysDisplayInConsole: $${client.is_alw_display}
+#     clientAuthenticatorType: $${client.authenticator_type}
+#     secret: $${client.secret}
+#     redirectUris: $${jsonencode(client.redirect_uris)}
+#     webOrigins: $${jsonencode(client.web_origins)}
+#     protocol: $${client.protocol}
 #     attributes:
-#       login_theme: ${client.attributes.login_theme}
-#       post.logout.redirect.uris: ${client.attributes.post_logout_redirect_uris}
-#       oauth2.device.authorization.grant.enabled: ${client.attributes.oauth2_device_authorization_grant_enabled}
+#       login_theme: $${client.attributes.login_theme}
+#       post.logout.redirect.uris: $${client.attributes.post_logout_redirect_uris}
+#       oauth2.device.authorization.grant.enabled: $${client.attributes.oauth2_device_authorization_grant_enabled}
 #
 #     %{ endfor ~}
 #   ]

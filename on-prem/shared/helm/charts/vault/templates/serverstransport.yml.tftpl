@@ -7,8 +7,14 @@
 # per-backend TLS client config that tells Traefik how to handle that connection.
 #
 # Referenced from the Vault ingress via the annotation:
-#   traefik.ingress.kubernetes.io/service.serverstransport: "${namespace}-backend@kubernetescrd"
+#   traefik.ingress.kubernetes.io/service.serverstransport: "$${namespace}-backend@kubernetescrd"
 # (Ingress reference format is "<namespace>-<name>@kubernetescrd".)
+#
+# API GROUP: `traefik.io/v1alpha1`, honored by the SELF-MANAGED Traefik v3 (its Helm chart
+# ships the traefik.io CRDs in crds/, and the kubernetesCRD provider is enabled). This is why
+# Vault stays on an Ingress instead of Gateway API: the Traefik-CRD ServersTransport path works
+# here — unlike the k3s-bundled Traefik (broken CRD bundle) and unlike the Gateway API
+# BackendTLSPolicy (can't verify the backend, traefik/traefik#12127).
 apiVersion: traefik.io/v1alpha1
 kind: ServersTransport
 metadata:
@@ -16,12 +22,12 @@ metadata:
   namespace: ${namespace}
 spec:
   # Lab-grade: accept Vault's self-signed backend cert. The hop is Traefik->Vault entirely
-  # inside the cluster pod network. For production, PIN the CA instead of skipping verify:
+  # inside the cluster pod network.
   #
+  # TO SWITCH TO *VERIFIED* backend TLS (works on self-managed v3 — `serverName` IS honored
+  # here, which defeats the pod-IP verification wall that broke the Gateway API path): replace
+  # the `insecureSkipVerify` line below with —
   #   rootCAsSecrets:
-  #     - ${parameters.common.vault_tls_server_name}   # cert-manager tls secret (holds ca.crt)
-  #   serverName: ${parameters.common.host}            # must match a SAN on Vault's cert
-  #
-  # (Verify Traefik reads the CA from the secret's expected key for your version before
-  # switching — otherwise the route keeps 500ing.)
+  #     - $${parameters.common.vault_tls_server_name}   # cert-manager tls secret (holds ca.crt)
+  #   serverName: $${parameters.common.host}            # vault.k3s.local — a SAN on Vault's cert
   insecureSkipVerify: true

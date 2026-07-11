@@ -5,7 +5,7 @@
 # (CRDs + controller) to already be running in the cluster.
 #
 # Chain: selfSigned Issuer -> CA Certificate -> CA Issuer -> server Certificate.
-# The server Certificate's Secret (${parameters.common.vault_tls_server_name}) carries
+# The server Certificate's Secret ($${parameters.common.vault_tls_server_name}) carries
 # tls.crt + tls.key + ca.crt; Vault mounts only that one secret.
 #
 # SANs cover EVERY name Vault is reached by, or Raft retry_join over TLS fails:

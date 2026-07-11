@@ -38,19 +38,19 @@ controller:
       maxReplicas: ${parameters.controller.max_replicas}
 
 #broker:
-#  replicaCount: ${parameters.broker.replica_count}
+#  replicaCount: $${parameters.broker.replica_count}
 #  automountServiceAccountToken: true
 #  heapOpts: -Xmx1024m -Xms1024m
 #  persistence:
 #    enabled: true
-#    storageClass: ${parameters.common.sc_name}
-#    mountPath: ${parameters.broker.mount_path}
-#    size: ${parameters.broker.size}
+#    storageClass: $${parameters.common.sc_name}
+#    mountPath: $${parameters.broker.mount_path}
+#    size: $${parameters.broker.size}
 #  autoscaling:
 #    hpa:
-#      enabled: ${parameters.broker.hpa_active}
-#      minReplicas: ${parameters.broker.min_replicas}
-#      maxReplicas: ${parameters.broker.max_replicas}
+#      enabled: $${parameters.broker.hpa_active}
+#      minReplicas: $${parameters.broker.min_replicas}
+#      maxReplicas: $${parameters.broker.max_replicas}
 
 externalAccess:
   autoDiscovery:
