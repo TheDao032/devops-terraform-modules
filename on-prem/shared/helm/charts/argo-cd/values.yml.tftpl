@@ -21,7 +21,10 @@ configs:
   #   argocdServerAdminPassword: $${parameters.common.admin_password}
 
 server:
+  # UI/API is exposed via a Gateway API HTTPRoute (module "argocd-routing" in addons.tf) on the
+  # shared traefik-gateway `web` listener — consistent with the "new HTTP services use Gateway
+  # API" rule. The chart's built-in Ingress is therefore OFF. server.insecure=true (configs.params
+  # above) makes argocd-server serve plain HTTP on :80, so the HTTPRoute backendRef needs no
+  # backend TLS (this is why ArgoCD avoids Vault's #12127 BackendTLSPolicy problem).
   ingress:
-    enabled: true
-    ingressClassName: "traefik"
-    tls: false
+    enabled: false

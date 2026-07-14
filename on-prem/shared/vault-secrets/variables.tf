@@ -8,6 +8,11 @@ variable "namespace" {
   default     = "default"
 }
 
+variable "kv_mount_path" {
+  type    = string
+  default = ""
+}
+
 # variable "database" {
 #   type    = map(any)
 #   default = {}

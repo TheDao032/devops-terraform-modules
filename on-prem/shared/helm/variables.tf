@@ -11,6 +11,11 @@ variable "enabled" {
   default = 1
 }
 
+variable "disabled" {
+  type    = number
+  default = 0
+}
+
 variable "chart" {
   type    = string
   default = null

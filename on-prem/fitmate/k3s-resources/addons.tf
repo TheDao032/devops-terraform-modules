@@ -39,13 +39,20 @@ locals {
   # kafka_broker     = var.kafka_conf.broker
   # kafka_sasl       = var.kafka_conf.sasl
 
-  # argocd_helm = var.argocd_conf.helm
-  # # argocd_docker  = var.argocd_conf.docker
-  # argocd_github  = var.argocd_conf.github
-  # argocd_common  = var.argocd_conf.common
-  # argocd_ingress = var.argocd_conf.ingress
-  # argocd_secret  = var.argocd_conf.secret
-  #
+  # ArgoCD (core). Enabled only when the env supplies argocd_conf — so the FIRST bring-up pass
+  # (no argocd_conf) skips it, and a SECOND pass (after vault-secrets + external-secrets are
+  # applied and feed argocd_conf via terragrunt dependencies) turns it on. This two-pass model
+  # is deliberate: argocd_conf reads outputs from stacks that themselves depend on THIS stack's
+  # Vault + ESO-operator, so it can't resolve until they're up. Locals are try()-guarded so an
+  # empty argocd_conf doesn't error while disabled.
+  argocd_enabled = length(var.argocd_conf) > 0 ? local.enabled : local.disabled
+  argocd_helm    = try(var.argocd_conf.helm, {})
+  argocd_github  = try(var.argocd_conf.github, {})
+  argocd_common  = try(var.argocd_conf.common, {})
+  argocd_ingress = try(var.argocd_conf.ingress, {})
+  argocd_secret  = try(var.argocd_conf.secret, {})
+  argocd_routing = try(var.argocd_conf.routing, {})
+
   # argocd_img_upd_helm   = var.argocd_img_upd_conf.helm
   # argocd_img_upd_docker = var.argocd_img_upd_conf.docker
   # argocd_img_upd_common = var.argocd_img_upd_conf.common
@@ -237,29 +244,56 @@ module "traefik-routing" {
 #   depends_on = [module.external-secrets]
 # }
 
-# module "argocd" {
-#   source                 = "../helm"
-#   enabled                = local.enabled
-#   environment            = var.environment
-#   name                   = local.argocd_helm.release_name
-#   namespace              = local.argocd_helm.namespace
-#   repository             = local.argocd_helm.repository
-#   chart_version          = local.argocd_helm.chart_version
-#   host                   = var.host
-#   client_key             = var.client_key
-#   client_certificate     = var.client_certificate
-#   cluster_ca_certificate = var.cluster_ca_certificate
-#   token                  = var.token
-#   tags                   = var.tags
-#   parameters = {
-#     common  = local.argocd_common
-#     ingress = local.argocd_ingress
-#     github  = local.argocd_github
-#     secret  = local.argocd_secret
-#   }
-#
-#   # depends_on = [null_resource.ex_secrets_ready]
-# }
+# ArgoCD (core) — Helm install into the gitops namespace. Repo creds (SSH key) are embedded via
+# the chart's credentialTemplates (from Vault, at plan time); the chart's ExternalSecrets (docker
+# + argocd creds) apply AFTER the release and reconcile once the gitops SecretStore exists (from
+# the external-secrets stack). server.insecure=true → plain-HTTP backend for the HTTPRoute below.
+module "argocd" {
+  source                 = "../../shared/helm"
+  enabled                = local.argocd_enabled
+  environment            = var.environment
+  name                   = try(local.argocd_helm.release_name, "argo-cd")
+  namespace              = try(local.argocd_helm.namespace, "gitops")
+  repository             = try(local.argocd_helm.repository, "")
+  chart_version          = try(local.argocd_helm.chart_version, "")
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    common  = local.argocd_common
+    ingress = local.argocd_ingress
+    github  = local.argocd_github
+    secret  = local.argocd_secret
+  }
+
+  # ESO operator (for the chart's ExternalSecrets) + Vault (source of the embedded repo creds).
+  depends_on = [module.external-secrets, module.vault]
+}
+
+# ArgoCD UI/API exposure — Gateway API HTTPRoute on the shared traefik-gateway `web` listener
+# (from:All allows this cross-namespace route from `gitops`). Backend is argocd-server on :80
+# (HTTP, because server.insecure=true). Consistent with "new HTTP services use Gateway API".
+module "argocd-routing" {
+  source                 = "../../shared/routing"
+  enabled                = local.argocd_enabled
+  environment            = var.environment
+  namespace              = try(local.argocd_helm.namespace, "gitops")
+  route_type             = var.route_type
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    routing = local.argocd_routing
+  }
+
+  depends_on = [module.traefik, module.argocd]
+}
 
 # module "argocd-img-update" {
 #   source                 = "../helm"

@@ -3,7 +3,7 @@ locals {
   chart      = var.chart == null ? null : "${path.module}/charts/${var.name}"
 
   sc_value_file = "${path.module}/charts/${var.name}/sc.yml.tftpl"
-  sc_created    = fileexists(local.sc_value_file) ? var.enabled : 0
+  sc_created    = fileexists(local.sc_value_file) ? var.enabled : var.disabled
 
   # Pre-helm TLS material (e.g. cert-manager Issuer/Certificate chain for Vault).
   # Split the multi-doc template into individual manifests so kubectl_manifest (one

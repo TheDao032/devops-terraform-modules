@@ -38,6 +38,6 @@ output "secrets" {
   sensitive = true
 }
 
-output "vault_mount_path" {
-  value = vault_mount.kv.path
-}
+# output "vault_mount_path" {
+#   value = vault_mount.kv.path
+# }

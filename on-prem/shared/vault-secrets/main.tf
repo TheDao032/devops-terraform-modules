@@ -33,14 +33,14 @@ locals {
 
 }
 
-resource "vault_mount" "kv" {
-  path = var.environment
-  type = "kv"
-  options = {
-    version = "2"
-  }
-  description = "KV Version 2 secret engine mount"
-}
+# resource "vault_mount" "kv" {
+#   path = var.environment
+#   type = "kv"
+#   options = {
+#     version = "2"
+#   }
+#   description = "KV Version 2 secret engine mount"
+# }
 
 resource "random_password" "secrets" {
   for_each = {
@@ -59,7 +59,7 @@ resource "random_password" "secrets" {
 resource "vault_kv_secret_v2" "secrets" {
   for_each     = local.secrets
   name         = each.key
-  mount        = vault_mount.kv.path
+  mount        = var.kv_mount_path
   disable_read = true
 
   data_json = jsonencode(
