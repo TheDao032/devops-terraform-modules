@@ -10,7 +10,7 @@ locals {
   # doc per resource) can apply each. fileexists-gated: no-op for charts without it.
   # Applied BEFORE helm_release so the referenced Secret exists at pod start.
   tls_value_file = "${path.module}/charts/${var.name}/tls.yml.tftpl"
-  tls_docs = fileexists(local.tls_value_file) && var.enabled == 1 ? [
+  tls_docs = fileexists(local.tls_value_file) ? [
     for doc in split("\n---\n", templatefile(local.tls_value_file, {
       parameters  = var.parameters
       namespace   = var.namespace
@@ -29,8 +29,14 @@ locals {
   # vault_secret_value_file = "${path.module}/charts/${var.name}/vault-token.yml.tftpl"
   # vault_secret_created    = fileexists(local.vault_secret_value_file) ? var.enabled : 0
 
-  templates_path = "${path.module}/charts/${var.name}/templates"
+  templates_path = "${path.module}/charts/${var.name}/templates/exec"
   templates      = fileset(local.templates_path, "*.yml.tftpl")
+
+  pre_templates_path = "${path.module}/charts/${var.name}/templates/pre-exec"
+  pre_templates      = fileset(local.pre_templates_path, "*.yml.tftpl")
+
+  post_templates_path = "${path.module}/charts/${var.name}/templates/post-exec"
+  post_templates      = fileset(local.post_templates_path, "*.yml.tftpl")
 
   env_files = fileset("${local.templates_path}/envs/${var.environment}", "*.env")
 
@@ -44,20 +50,6 @@ locals {
   # serviceaccount_file = "${path.module}/charts/${var.name}/serviceaccount.json"
   # iam_role_created    = fileexists(local.serviceaccount_file) ? var.enabled : 0
 }
-
-# resource "kubernetes_namespace" "namespace" {
-#   metadata {
-#     annotations = {
-#       name = var.namespace
-#     }
-#
-#     labels = {
-#       name = var.namespace
-#     }
-#
-#     name = var.namespace
-#   }
-# }
 
 resource "kubectl_manifest" "sc" {
   count = local.sc_created
@@ -90,28 +82,19 @@ resource "kubectl_manifest" "tls" {
   depends_on = [kubectl_manifest.namespace]
 }
 
-# resource "kubectl_manifest" "vault_token_secret" {
-#   count = local.vault_secret_created
-#
-#   yaml_body = templatefile(local.vault_secret_value_file, {
-#     parameters  = var.parameters
-#     namespace   = var.namespace
-#     environment = var.environment
-#   })
-# }
-#
-# resource "kubectl_manifest" "secret_store" {
-#   count = local.secret_store_created
-#
-#   yaml_body = templatefile(local.secret_store_value_file, {
-#     parameters  = var.parameters
-#     namespace   = var.namespace
-#     environment = var.environment
-#   })
-#
-#   depends_on = [kubectl_manifest.vault_token_secret]
-# }
+resource "kubectl_manifest" "pre_templates" {
+  for_each = var.enabled == 1 ? toset(local.pre_templates) : toset([])
 
+  yaml_body = templatefile("${local.pre_templates_path}/${each.value}", {
+    parameters  = var.parameters
+    namespace   = var.namespace
+    environment = var.environment
+  })
+
+  depends_on = [
+    helm_release.main,
+  ]
+}
 
 resource "helm_release" "main" {
   count            = var.enabled
@@ -154,7 +137,21 @@ resource "kubectl_manifest" "templates" {
 
   depends_on = [
     helm_release.main,
-    # kubectl_manifest.secret_store
+  ]
+}
+
+resource "kubectl_manifest" "post_templates" {
+  for_each = var.enabled == 1 ? toset(local.post_templates) : toset([])
+  # for_each = toset(local.templates)
+
+  yaml_body = templatefile("${local.post_templates_path}/${each.value}", {
+    parameters  = var.parameters
+    namespace   = var.namespace
+    environment = var.environment
+  })
+
+  depends_on = [
+    helm_release.main,
   ]
 }
 

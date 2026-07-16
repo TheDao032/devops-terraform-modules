@@ -16,31 +16,31 @@ variable "reloader_conf" {
 
 variable "argocd_conf" {
   description = "Configuration for ArgoCD values"
-  type        = map(any)
+  type        = any
   default     = {}
 }
 
 variable "argocd_img_upd_conf" {
   description = "Configuration for ArgoCD Img Updater values"
-  type        = map(any)
+  type        = any
   default     = {}
 }
 
 variable "coredns_conf" {
   description = "Configuration for CoreDNS values"
-  type        = map(any)
+  type        = any
   default     = {}
 }
 
 variable "kafka_conf" {
   description = "Configuration for Kafka values"
-  type        = map(any)
+  type        = any
   default     = {}
 }
 
 variable "consul_conf" {
   description = "Configuration for Consul values"
-  type        = map(any)
+  type        = any
   default     = {}
 }
 
@@ -52,13 +52,13 @@ variable "vault_conf" {
 
 variable "external_secrets_conf" {
   description = "Configuration for Consul values"
-  type        = map(any)
+  type        = any
   default     = {}
 }
 
 variable "cert_manager_conf" {
   description = "Configuration for cert-manager (controller + CRDs; self-signed issuers)"
-  type        = map(any)
+  type        = any
   default     = {}
 }
 

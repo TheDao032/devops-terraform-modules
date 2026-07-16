@@ -72,11 +72,15 @@ ports:
       default: true
 
 # ── Dashboard / API ──────────────────────────────────────────────────────────
-# Dashboard served internally (api@internal). We expose it via our OWN IngressRoute in the
-# routing layer (module "traefik-routing" → dashboard.yml.tftpl), so leave the chart's
-# built-in insecure dashboard IngressRoute OFF.
+# Dashboard served internally (api@internal) and exposed via the CHART's built-in IngressRoute
+# (this replaces the old routing-module dashboard.yml.tftpl — exactly ONE owner now). The host is
+# derived from the environment (env=local → traefik.k3s.local); map it in /etc/hosts. For a custom
+# per-tenant domain, swap the host for a ${parameters.*} value plumbed from the caller.
 api:
   dashboard: true
 ingressRoute:
   dashboard:
-    enabled: false
+    enabled: true
+    matchRule: Host(`traefik.k3s.${environment}`)
+    entryPoints:
+      - web

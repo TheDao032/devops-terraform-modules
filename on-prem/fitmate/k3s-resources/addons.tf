@@ -5,8 +5,9 @@ locals {
   # coredns_helm   = var.coredns_conf.helm
   # coredns_common = var.coredns_conf.common
 
-  cert_manager_helm   = var.cert_manager_conf.helm
-  cert_manager_common = var.cert_manager_conf.common
+  cert_manager_enabled = length(var.cert_manager_conf) > 0 ? local.enabled : local.disabled
+  cert_manager_helm    = try(var.cert_manager_conf.helm, {})
+  cert_manager_common  = try(var.cert_manager_conf.common, {})
 
   # Self-managed Traefik v3 (k3s-bundled v2.11 disabled via `--disable=traefik`). ONE
   # controller handles everything at once: Kubernetes Ingress (Vault), Traefik CRD/IngressRoute
@@ -21,17 +22,20 @@ locals {
   gateway_api_crd_files = ["gateway-api-standard-v1.5.1.yaml"] # Gateway API standard channel
   crd_files             = local.gateway_api_crd_files
 
-  traefik_helm    = var.traefik_conf.helm
-  traefik_common  = var.traefik_conf.common
+  traefik_enabled = length(var.traefik_conf) > 0 ? local.enabled : local.disabled
+  traefik_helm    = try(var.traefik_conf.helm, {})
+  traefik_common  = try(var.traefik_conf.common, {})
   traefik_routing = try(var.traefik_conf.routing, {})
 
-  vault_helm   = var.vault_conf.helm
-  vault_server = var.vault_conf.server
-  vault_ui     = var.vault_conf.ui
-  vault_common = var.vault_conf.common
+  vault_enabled = length(var.traefik_conf) > 0 ? local.enabled : local.disabled
+  vault_helm    = try(var.vault_conf.helm, {})
+  vault_server  = try(var.vault_conf.server, {})
+  vault_ui      = try(var.vault_conf.ui, {})
+  vault_common  = try(var.vault_conf.common, {})
 
-  external_secrets_helm   = var.external_secrets_conf.helm
-  external_secrets_common = var.external_secrets_conf.common
+  external_secrets_enabled = length(var.external_secrets_conf) > 0 ? local.enabled : local.disabled
+  external_secrets_helm    = try(var.external_secrets_conf.helm, {})
+  external_secrets_common  = try(var.external_secrets_conf.common, {})
   # external_secrets_secret = var.external_secrets_conf.secret
 
   # kafka_helm       = var.kafka_conf.helm
@@ -103,7 +107,7 @@ module "core-dns" {
 
 module "cert-manager" {
   source                 = "../../shared/helm"
-  enabled                = local.enabled
+  enabled                = local.cert_manager_enabled
   environment            = var.environment
   name                   = local.cert_manager_helm.release_name
   namespace              = local.cert_manager_helm.namespace
@@ -137,7 +141,7 @@ module "gateway-api-crds" {
 # dashboard depend on.
 module "traefik" {
   source                 = "../../shared/helm"
-  enabled                = local.enabled
+  enabled                = local.traefik_enabled
   environment            = var.environment
   name                   = local.traefik_helm.release_name
   namespace              = local.traefik_helm.namespace
@@ -155,7 +159,7 @@ module "traefik" {
 
 module "vault" {
   source                 = "../../shared/helm"
-  enabled                = local.enabled
+  enabled                = local.vault_enabled
   environment            = var.environment
   name                   = local.vault_helm.release_name
   namespace              = local.vault_helm.namespace
@@ -182,7 +186,7 @@ module "vault" {
 
 module "external-secrets" {
   source                 = "../../shared/helm"
-  enabled                = local.enabled
+  enabled                = local.external_secrets_enabled
   environment            = var.environment
   name                   = local.external_secrets_helm.release_name
   namespace              = local.external_secrets_helm.namespace
@@ -204,7 +208,7 @@ module "external-secrets" {
 # Future HTTP services each add an HTTPRoute (Gateway API) pointing at the traefik-gateway.
 module "traefik-routing" {
   source                 = "../../shared/routing"
-  enabled                = local.enabled
+  enabled                = local.traefik_enabled
   environment            = var.environment
   namespace              = local.traefik_helm.namespace
   route_type             = var.route_type
@@ -252,8 +256,8 @@ module "argocd" {
   source                 = "../../shared/helm"
   enabled                = local.argocd_enabled
   environment            = var.environment
-  name                   = try(local.argocd_helm.release_name, "argo-cd")
-  namespace              = try(local.argocd_helm.namespace, "gitops")
+  name                   = try(local.argocd_helm.release_name, "argocd")
+  namespace              = try(local.argocd_helm.namespace, "argocd")
   repository             = try(local.argocd_helm.repository, "")
   chart_version          = try(local.argocd_helm.chart_version, "")
   host                   = var.host
@@ -280,7 +284,7 @@ module "argocd-routing" {
   source                 = "../../shared/routing"
   enabled                = local.argocd_enabled
   environment            = var.environment
-  namespace              = try(local.argocd_helm.namespace, "gitops")
+  namespace              = try(local.argocd_helm.namespace, "argocd")
   route_type             = var.route_type
   host                   = var.host
   client_key             = var.client_key

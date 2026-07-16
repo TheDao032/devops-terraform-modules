@@ -1,12 +1,5 @@
 locals {
-  routing                   = var.parameters.routing
-  middleware_strip_prefixes = local.routing != {} && can(var.parameters.routing.middleware_strip_prefixes) ? var.parameters.routing.middleware_strip_prefixes : []
-  ingressroutes             = local.routing != {} && can(var.parameters.routing.ingressroutes) ? var.parameters.routing.ingressroutes : []
-
-  middle_file      = "${path.module}/${var.route_type}/middle.yml.tftpl"
-  ingroute_file    = "${path.module}/${var.route_type}/ingroute.yml.tftpl"
-  middle_created   = length(local.middleware_strip_prefixes) > 0 ? length(local.middleware_strip_prefixes) : 0
-  ingroute_created = length(local.ingressroutes) > 0 ? length(local.ingressroutes) : 0
+  routing = var.parameters.routing
 
   # Gateway API resources (route_type must expose <route_type>/gateway-api/*.yml.tftpl).
   # httproutes:           HTTPRoute per entry (host/path -> backend Service).
@@ -23,40 +16,8 @@ locals {
   httproute_file        = "${path.module}/${var.route_type}/gateway-api/httproute.yml.tftpl"
   backendtlspolicy_file = "${path.module}/${var.route_type}/gateway-api/backendtlspolicy.yml.tftpl"
 
-  # Traefik dashboard is api@internal (not a k8s Service) so it can't be an HTTPRoute — it
-  # gets a Traefik-native IngressRoute instead (mixed model). traefik-only.
-  dashboard_routes = local.routing != {} && can(var.parameters.routing.dashboard_routes) ? var.parameters.routing.dashboard_routes : []
-  dashboard_file   = "${path.module}/${var.route_type}/dashboard.yml.tftpl"
-}
-
-resource "kubectl_manifest" "middle_strip_prefix" {
-  count = local.middle_created
-
-  yaml_body = templatefile(local.middle_file,
-    {
-      name      = local.middleware_strip_prefixes[count.index].name
-      prefixes  = local.middleware_strip_prefixes[count.index].prefixes
-      namespace = local.middleware_strip_prefixes[count.index].namespace
-    }
-  )
-}
-
-resource "kubectl_manifest" "ingress_route" {
-  count = local.ingroute_created
-  yaml_body = templatefile(local.ingroute_file,
-    {
-      ingress_route_name     = local.ingressroutes[count.index].ingress_route_name
-      middleware_annotations = local.ingressroutes[count.index].middleware_annotations
-      match_condition        = local.ingressroutes[count.index].match_condition
-      middlewares            = local.ingressroutes[count.index].middlewares
-      services               = local.ingressroutes[count.index].services
-      namespace              = local.ingressroutes[count.index].namespace
-    }
-  )
-
-  depends_on = [
-    kubectl_manifest.middle_strip_prefix,
-  ]
+  # NOTE: the Traefik dashboard is no longer rendered here — it's exposed by the Traefik CHART's
+  # built-in IngressRoute (ingressRoute.dashboard.enabled in charts/traefik/values.yml.tftpl).
 }
 
 # ── Gateway API ────────────────────────────────────────────────────────────────
@@ -93,17 +54,6 @@ resource "kubectl_manifest" "backend_tls_policy" {
     {
       policy    = local.backend_tls_policies[count.index]
       namespace = local.backend_tls_policies[count.index].namespace
-    }
-  )
-}
-
-resource "kubectl_manifest" "dashboard" {
-  count = length(local.dashboard_routes)
-
-  yaml_body = templatefile(local.dashboard_file,
-    {
-      route     = local.dashboard_routes[count.index]
-      namespace = local.dashboard_routes[count.index].namespace
     }
   )
 }
