@@ -23,7 +23,13 @@ locals {
   # traefik/traefik#12127). On self-managed v3 the ServersTransport IS honored (unlike the
   # broken bundle), so the Ingress path works. New HTTP services use Gateway API HTTPRoutes.
   gateway_api_crd_files = ["gateway-api-standard-v1.5.1.yaml"] # Gateway API standard channel
-  crd_files             = local.gateway_api_crd_files
+  # Keycloak Operator CRDs (Keycloak + KeycloakRealmImport) — cluster-scoped, install-once,
+  # pinned to the operator release. The operator Deployment + the Keycloak CR live in ops-tools.
+  keycloak_operator_crd_files = [
+    "keycloak-operator-keycloaks-26.7.0.yaml",
+    "keycloak-operator-realmimports-26.7.0.yaml",
+  ]
+  crd_files = concat(local.gateway_api_crd_files, local.keycloak_operator_crd_files)
 
   traefik_enabled = length(var.traefik_conf) > 0 ? local.enabled : local.disabled
   traefik_helm    = try(var.traefik_conf.helm, {})

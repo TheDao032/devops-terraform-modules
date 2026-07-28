@@ -60,6 +60,13 @@ locals {
   argocd_secret  = try(var.argocd_conf.secret, {})
   argocd_routing = try(var.argocd_conf.routing, {})
 
+  # Keycloak (operator-based). Enabled only when the env supplies keycloak_conf. try()-guarded so
+  # an empty conf resolves to safe defaults while disabled.
+  keycloak_enabled = length(var.keycloak_conf) > 0 ? local.enabled : local.disabled
+  keycloak_kc      = try(var.keycloak_conf.keycloak, {})
+  keycloak_db      = try(var.keycloak_conf.db, {})
+  keycloak_routing = try(var.keycloak_conf.routing, {})
+
   # argocd_img_upd_helm   = var.argocd_img_upd_conf.helm
   # argocd_img_upd_docker = var.argocd_img_upd_conf.docker
   # argocd_img_upd_common = var.argocd_img_upd_conf.common
@@ -136,6 +143,56 @@ module "argocd-routing" {
   }
 
   depends_on = [module.argocd]
+}
+
+# Keycloak (self-hosted IAM) via the Keycloak OPERATOR. This applies the operator Deployment + the
+# Keycloak CR; the CRDs are installed cluster-once by init-resources' crds module. Keycloak connects
+# to the EXTERNAL Citus Postgres (coordinator :5432, db=keycloak) — NOT in-cluster, NOT pgbouncer.
+# Admin bootstrap = the operator's auto-generated keycloak-initial-admin Secret.
+module "keycloak" {
+  source      = "../../shared/helm/charts/keycloak-operator"
+  enabled     = local.keycloak_enabled
+  environment = var.environment
+  namespace   = try(local.keycloak_kc.namespace, "keycloak")
+  keycloak_conf = {
+    hostname  = try(local.keycloak_kc.hostname, "keycloak.k3s.local")
+    instances = try(local.keycloak_kc.instances, 1)
+    image     = try(local.keycloak_kc.image, null)
+    db = {
+      host     = try(local.keycloak_db.host, "")
+      port     = try(local.keycloak_db.port, 5432)
+      database = try(local.keycloak_db.database, "keycloak")
+    }
+  }
+  db_username            = try(local.keycloak_db.username, "")
+  db_password            = try(local.keycloak_db.password, "")
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+}
+
+# Keycloak UI/API exposure — Gateway API HTTPRoute on the shared traefik-gateway `web` listener,
+# backend = the operator's keycloak-service :8080 (httpEnabled). Same pattern as argocd-routing.
+module "keycloak-routing" {
+  source                 = "../../shared/routing"
+  enabled                = local.keycloak_enabled
+  environment            = var.environment
+  namespace              = try(local.keycloak_kc.namespace, "keycloak")
+  route_type             = var.route_type
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    routing = local.keycloak_routing
+  }
+
+  depends_on = [module.keycloak]
 }
 
 # module "argocd-img-update" {

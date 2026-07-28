@@ -45,6 +45,19 @@ variable "argocd_conf" {
   }
 }
 
+variable "keycloak_conf" {
+  # intentionally any: heterogeneous Keycloak config (keycloak/db/routing blocks), sliced by
+  # try() in addons.tf and handed to the keycloak-operator + routing modules.
+  description = "Configuration for Keycloak (keycloak-operator CR + external DB + routing.httproutes)."
+  type        = any
+  default     = {}
+
+  validation {
+    condition     = can(keys(var.keycloak_conf))
+    error_message = "keycloak_conf must be a map/object."
+  }
+}
+
 variable "argocd_img_upd_conf" {
   # intentionally any: freeform ArgoCD Image Updater config passed opaquely to a child module.
   description = "Configuration for ArgoCD Image Updater values."

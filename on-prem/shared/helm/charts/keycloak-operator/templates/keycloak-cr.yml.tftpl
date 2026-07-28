@@ -1,0 +1,31 @@
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: ${name}
+  namespace: ${namespace}
+spec:
+  instances: ${conf.instances}
+%{ if try(conf.image, null) != null ~}
+  image: ${conf.image}
+%{ endif ~}
+  db:
+    vendor: postgres
+    host: ${conf.db.host}
+    port: ${conf.db.port}
+    database: ${conf.db.database}
+    usernameSecret:
+      name: keycloak-db
+      key: username
+    passwordSecret:
+      name: keycloak-db
+      key: password
+  hostname:
+    hostname: ${conf.hostname}
+  # Gateway (Traefik) terminates TLS and forwards HTTP → Keycloak serves plain HTTP and trusts
+  # the X-Forwarded-* headers. The operator's own Ingress is disabled; we route via Gateway API.
+  http:
+    httpEnabled: true
+  proxy:
+    headers: xforwarded
+  ingress:
+    enabled: false
