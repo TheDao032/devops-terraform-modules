@@ -1,0 +1,9 @@
+; ============================================================================
+; MANAGED BY TERRAFORM — on-prem/shared/database/postgresql.  DO NOT EDIT.
+; Regenerated on every apply from the module's databases{} map and %include'd by
+; the Ansible-owned base /etc/pgbouncer/pgbouncer.ini. pgbouncer re-reads this on SIGHUP.
+; ============================================================================
+[databases]
+%{ for name, cfg in databases ~}
+${name} = host=${coordinator} port=${pg_port} dbname=${coalesce(cfg.pgbouncer.dbname, name)}%{ if cfg.pgbouncer.pool_mode != null } pool_mode=${cfg.pgbouncer.pool_mode}%{ endif }%{ if cfg.pgbouncer.pool_size != null } pool_size=${cfg.pgbouncer.pool_size}%{ endif }
+%{ endfor ~}
