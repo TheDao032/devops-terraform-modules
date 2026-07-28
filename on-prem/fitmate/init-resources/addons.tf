@@ -1,4 +1,7 @@
 locals {
+  disabled = 0
+  enabled  = 1
+
   # CoreDNS is managed by k3s itself (rancher/mirrored-coredns-coredns:1.11.3) since the lab
   # no longer passes --disable=coredns. The terraform core-dns module below is commented out
   # so it doesn't fight k3s for the kube-system coredns/kube-dns resources.
@@ -60,12 +63,10 @@ locals {
   # argocd_img_upd_helm   = var.argocd_img_upd_conf.helm
   # argocd_img_upd_docker = var.argocd_img_upd_conf.docker
   # argocd_img_upd_common = var.argocd_img_upd_conf.common
-  #
-  # reloader_helm   = var.reloader_conf.helm
-  # reloader_common = var.reloader_conf.common
 
-  disabled = 0
-  enabled  = 1
+  reloader_enabled = length(var.reloader_conf) > 0 ? local.enabled : local.disabled
+  reloader_helm    = try(var.reloader_conf.helm)
+  reloader_common  = try(var.reloader_conf.common)
 
   # argocd_img_upd_secret_store = var.argocd_img_upd_conf.secret_store
   # argocd_img_upd_github       = var.argocd_img_upd_conf.github
@@ -225,24 +226,24 @@ module "traefik-routing" {
   depends_on = [module.traefik]
 }
 
-# module "reloader" {
-#   source                 = "../helm"
-#   enabled                = local.enabled
-#   environment            = var.environment
-#   name                   = local.reloader_helm.release_name
-#   namespace              = local.reloader_helm.namespace
-#   repository             = local.reloader_helm.repository
-#   chart_version          = local.reloader_helm.chart_version
-#   host                   = var.host
-#   client_key             = var.client_key
-#   client_certificate     = var.client_certificate
-#   cluster_ca_certificate = var.cluster_ca_certificate
-#   token                  = var.token
-#   tags                   = var.tags
-#   parameters = {
-#     common = local.reloader_common
-#   }
-# }
+module "reloader" {
+  source                 = "../../shared/helm"
+  enabled                = local.enabled
+  environment            = var.environment
+  name                   = local.reloader_helm.release_name
+  namespace              = local.reloader_helm.namespace
+  repository             = local.reloader_helm.repository
+  chart_version          = local.reloader_helm.chart_version
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    common = local.reloader_common
+  }
+}
 
 # resource "null_resource" "ex_secrets_ready" {
 #   depends_on = [module.external-secrets]
@@ -252,52 +253,52 @@ module "traefik-routing" {
 # the chart's credentialTemplates (from Vault, at plan time); the chart's ExternalSecrets (docker
 # + argocd creds) apply AFTER the release and reconcile once the gitops SecretStore exists (from
 # the external-secrets stack). server.insecure=true → plain-HTTP backend for the HTTPRoute below.
-module "argocd" {
-  source                 = "../../shared/helm"
-  enabled                = local.argocd_enabled
-  environment            = var.environment
-  name                   = try(local.argocd_helm.release_name, "argocd")
-  namespace              = try(local.argocd_helm.namespace, "argocd")
-  repository             = try(local.argocd_helm.repository, "")
-  chart_version          = try(local.argocd_helm.chart_version, "")
-  host                   = var.host
-  client_key             = var.client_key
-  client_certificate     = var.client_certificate
-  cluster_ca_certificate = var.cluster_ca_certificate
-  token                  = var.token
-  tags                   = var.tags
-  parameters = {
-    common  = local.argocd_common
-    ingress = local.argocd_ingress
-    github  = local.argocd_github
-    secret  = local.argocd_secret
-  }
-
-  # ESO operator (for the chart's ExternalSecrets) + Vault (source of the embedded repo creds).
-  depends_on = [module.external-secrets, module.vault]
-}
-
-# ArgoCD UI/API exposure — Gateway API HTTPRoute on the shared traefik-gateway `web` listener
-# (from:All allows this cross-namespace route from `gitops`). Backend is argocd-server on :80
-# (HTTP, because server.insecure=true). Consistent with "new HTTP services use Gateway API".
-module "argocd-routing" {
-  source                 = "../../shared/routing"
-  enabled                = local.argocd_enabled
-  environment            = var.environment
-  namespace              = try(local.argocd_helm.namespace, "argocd")
-  route_type             = var.route_type
-  host                   = var.host
-  client_key             = var.client_key
-  client_certificate     = var.client_certificate
-  cluster_ca_certificate = var.cluster_ca_certificate
-  token                  = var.token
-  tags                   = var.tags
-  parameters = {
-    routing = local.argocd_routing
-  }
-
-  depends_on = [module.traefik, module.argocd]
-}
+# module "argocd" {
+#   source                 = "../../shared/helm"
+#   enabled                = local.argocd_enabled
+#   environment            = var.environment
+#   name                   = try(local.argocd_helm.release_name, "argocd")
+#   namespace              = try(local.argocd_helm.namespace, "argocd")
+#   repository             = try(local.argocd_helm.repository, "")
+#   chart_version          = try(local.argocd_helm.chart_version, "")
+#   host                   = var.host
+#   client_key             = var.client_key
+#   client_certificate     = var.client_certificate
+#   cluster_ca_certificate = var.cluster_ca_certificate
+#   token                  = var.token
+#   tags                   = var.tags
+#   parameters = {
+#     common  = local.argocd_common
+#     ingress = local.argocd_ingress
+#     github  = local.argocd_github
+#     secret  = local.argocd_secret
+#   }
+#
+#   # ESO operator (for the chart's ExternalSecrets) + Vault (source of the embedded repo creds).
+#   depends_on = [module.external-secrets, module.vault]
+# }
+#
+# # ArgoCD UI/API exposure — Gateway API HTTPRoute on the shared traefik-gateway `web` listener
+# # (from:All allows this cross-namespace route from `gitops`). Backend is argocd-server on :80
+# # (HTTP, because server.insecure=true). Consistent with "new HTTP services use Gateway API".
+# module "argocd-routing" {
+#   source                 = "../../shared/routing"
+#   enabled                = local.argocd_enabled
+#   environment            = var.environment
+#   namespace              = try(local.argocd_helm.namespace, "argocd")
+#   route_type             = var.route_type
+#   host                   = var.host
+#   client_key             = var.client_key
+#   client_certificate     = var.client_certificate
+#   cluster_ca_certificate = var.cluster_ca_certificate
+#   token                  = var.token
+#   tags                   = var.tags
+#   parameters = {
+#     routing = local.argocd_routing
+#   }
+#
+#   depends_on = [module.traefik, module.argocd]
+# }
 
 # module "argocd-img-update" {
 #   source                 = "../helm"

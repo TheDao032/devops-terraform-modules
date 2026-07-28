@@ -1,6 +1,6 @@
 # ── Auth method: AppRole (machine / service) ─────────────────────────────────
 # Byte-IDENTICAL to the vault-roles module (same resource addresses) so a vault-roles caller
-# migrates to vault-auth by changing ONLY its `source` — no `state mv`, no destroy/recreate of
+# migrates to vault-auths by changing ONLY its `source` — no `state mv`, no destroy/recreate of
 # the auth backend. The backend is created unconditionally (as in vault-roles); the roles /
 # secret_ids / logins are per-entry, so a userpass-only stack (roles = {}) just leaves an empty
 # approle backend enabled. role_id + secret_id + login token are exposed via outputs.tf.

@@ -1,6 +1,6 @@
 # AppRole credentials per role — byte-compatible with the vault-roles module's `roles` output,
 # so vault-secrets (which consumes role_id/secret_id/client_token) works unchanged after a
-# vault-roles → vault-auth migration.
+# vault-roles → vault-auths migration.
 output "roles" {
   description = "Per-role AppRole credentials (role_id, secret_id, client_token)."
   value = {
@@ -28,6 +28,11 @@ output "user_generated_passwords" {
 }
 
 output "kv_mount_path" {
-  description = "KV-v2 mount path (empty when mount_kv = false)."
+  description = "KV-v2 mount path = the org ('fitmate'), empty when mount_kv = false. vault-secrets mounts here."
   value       = var.mount_kv ? vault_mount.kv[0].path : ""
+}
+
+output "secret_path_prefix" {
+  description = "Folder inside the KV mount that everything lives under, WITH trailing slash ('<env>/', e.g. 'local/'; empty with no org). vault-secrets prepends this to each key so secrets land at <org>/data/<env>/<key>."
+  value       = local.key_prefix
 }

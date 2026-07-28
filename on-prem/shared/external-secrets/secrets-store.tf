@@ -13,6 +13,7 @@ module "local-secrets-store" {
   source                 = "../secrets-stored"
   enabled                = local.enabled
   environment            = var.environment
+  org                    = var.org
   namespace              = local.local_common.namespace
   host                   = var.host
   client_key             = var.client_key
@@ -31,6 +32,7 @@ module "gitops-secrets-store" {
   source                 = "../secrets-stored"
   enabled                = local.enabled
   environment            = var.environment
+  org                    = var.org
   namespace              = local.gitops_common.namespace
   host                   = var.host
   client_key             = var.client_key

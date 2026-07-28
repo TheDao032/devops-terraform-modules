@@ -4,6 +4,11 @@ locals {
 
   secret_store_tmp_file = "${path.module}/namespaces/${var.namespace}/secret-store.yml.tftpl"
   secret_store_created  = fileexists(local.secret_store_tmp_file) ? var.enabled : var.disabled
+
+  # KV mount path the SecretStore reads FROM = the ORG mount ("fitmate"), matching vault-auths's
+  # engine mount. The env folder ("local/") lives INSIDE the mount and is part of each
+  # ExternalSecret's remoteRef.key (downstream), not the SecretStore path.
+  kv_path = trimspace(var.org) != "" ? var.org : var.environment
 }
 
 resource "kubectl_manifest" "approle_secret" {
@@ -22,9 +27,9 @@ resource "kubectl_manifest" "secret_store" {
   count = local.secret_store_created
   yaml_body = templatefile(local.secret_store_tmp_file,
     {
-      namespace   = var.namespace
-      environment = var.environment
-      parameters  = var.parameters
+      namespace  = var.namespace
+      mount_path = local.kv_path
+      parameters = var.parameters
     }
   )
 

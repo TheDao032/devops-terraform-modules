@@ -58,7 +58,7 @@ resource "random_password" "secrets" {
 
 resource "vault_kv_secret_v2" "secrets" {
   for_each     = local.secrets
-  name         = each.key
+  name         = "${var.path_prefix}${each.key}"
   mount        = var.kv_mount_path
   disable_read = true
 

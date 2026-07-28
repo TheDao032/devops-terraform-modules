@@ -58,7 +58,7 @@ resource "vault_generic_endpoint" "users" {
 resource "vault_kv_secret_v2" "user_credentials" {
   for_each = var.mount_kv ? local.random_pw_users : {}
   mount    = vault_mount.kv[0].path
-  name     = "userpass/${each.key}"
+  name     = "${local.key_prefix}userpass/${each.key}"
 
   data_json = jsonencode({
     username = each.key
