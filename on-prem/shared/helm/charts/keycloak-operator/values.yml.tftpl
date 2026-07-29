@@ -1,0 +1,44 @@
+# The Keycloak instance (the "main" resource of this manifest-mode chart — applied by shared/helm's
+# kubectl_manifest.main since helm_release_enabled = false). Requires: the CRDs (installed cluster-once
+# by init-resources), the operator running (templates/pre-exec/), and the DB Secret (templates/exec/).
+# Rendered by the generic shared/helm module with its namespace + parameters context.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: ${namespace}
+spec:
+  instances: ${parameters.keycloak.instances}
+%{ if try(parameters.keycloak.image, "") != "" ~}
+  image: ${parameters.keycloak.image}
+%{ endif ~}
+  # Override the operator's PROD default (requests 1700Mi / limit 2Gi) — too big for the 2Gi-node
+  # lab (no single node has 1700Mi free → FailedScheduling). Keycloak 26 is Quarkus, so it's happy
+  # in ~1Gi. Env-overridable via parameters.keycloak.resources.{requests_cpu,requests_memory,limits_memory}.
+  resources:
+    requests:
+      cpu: ${try(parameters.keycloak.resources.requests_cpu, "500m")}
+      memory: ${try(parameters.keycloak.resources.requests_memory, "768Mi")}
+    limits:
+      memory: ${try(parameters.keycloak.resources.limits_memory, "1Gi")}
+  db:
+    vendor: postgres
+    host: ${parameters.db.host}
+    port: ${parameters.db.port}
+    database: ${parameters.db.database}
+    usernameSecret:
+      name: keycloak-db
+      key: username
+    passwordSecret:
+      name: keycloak-db
+      key: password
+  hostname:
+    hostname: ${parameters.keycloak.hostname}
+  # Gateway (Traefik) terminates TLS and forwards HTTP → Keycloak serves plain HTTP and trusts the
+  # X-Forwarded-* headers. The operator's own Ingress is disabled; we route via Gateway API HTTPRoute.
+  http:
+    httpEnabled: true
+  proxy:
+    headers: xforwarded
+  ingress:
+    enabled: false

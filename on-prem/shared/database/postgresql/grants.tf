@@ -2,14 +2,15 @@
 #   on_future = false -> postgresql_grant on EXISTING objects (empty `objects` => all current).
 #   on_future = true  -> postgresql_default_privileges for FUTURE objects the `owner` creates
 #                        (the right tool when tables come from the service's migrations LATER).
-# For object_type "database"/"schema" the `schema` field is omitted.
+# `schema` is omitted ONLY for object_type "database"; for "schema" it NAMES the schema being
+# granted on (the provider requires it there — omitting it errors "schema is mandatory").
 
 resource "postgresql_grant" "this" {
   for_each = var.enabled ? local.grants_now : {}
 
   role              = each.value.role
   database          = each.value.database
-  schema            = contains(["database", "schema"], each.value.object_type) ? null : each.value.schema
+  schema            = each.value.object_type == "database" ? null : each.value.schema
   object_type       = each.value.object_type
   objects           = each.value.objects
   privileges        = each.value.privileges

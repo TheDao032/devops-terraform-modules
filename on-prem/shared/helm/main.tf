@@ -18,16 +18,25 @@ locals {
     })) : trimspace(doc) if trimspace(doc) != ""
   ] : []
 
-  # The target namespace must exist BEFORE the namespaced pre-helm manifests (tls)
-  # apply — helm_release's create_namespace only runs afterwards. Gate on tls presence
-  # so charts that deploy into an existing ns (e.g. kube-system) are unaffected.
-  ns_created = fileexists(local.tls_value_file) ? var.enabled : 0
+  # ── Manifest (helm-less) mode ───────────────────────────────────────────────
+  # When helm_release_enabled = false the chart installs NO Helm release; instead values.yml.tftpl
+  # is treated as raw manifest(s) — the "main" resource, typically a CR (e.g. the Keycloak CR).
+  # Multi-doc split so a bundle works too. The namespace is created here (helm's create_namespace
+  # never runs). Used by operator-style charts that aren't Helm charts (keycloak-operator).
+  manifest_mode = var.enabled == 1 && !var.helm_release_enabled
+  main_manifest_docs = (local.manifest_mode && fileexists(local.value_file)) ? [
+    for doc in split("\n---\n", templatefile(local.value_file, {
+      namespace   = var.namespace
+      environment = var.environment
+      parameters  = var.parameters
+      env_info    = local.env_info
+    })) : trimspace(doc) if trimspace(doc) != ""
+  ] : []
 
-  # secret_store_value_file = "${path.module}/charts/${var.name}/secret-store.yml.tftpl"
-  # secret_store_created    = fileexists(local.secret_store_value_file) ? var.enabled : 0
-  #
-  # vault_secret_value_file = "${path.module}/charts/${var.name}/vault-token.yml.tftpl"
-  # vault_secret_created    = fileexists(local.vault_secret_value_file) ? var.enabled : 0
+  # The target namespace must exist BEFORE the namespaced pre-helm manifests (tls) apply — OR before
+  # any manifest-mode resource (helm's create_namespace never runs in manifest mode). Gate on tls
+  # presence OR manifest mode so pure-Helm charts deploying into an existing ns are unaffected.
+  ns_created = (fileexists(local.tls_value_file) || local.manifest_mode) ? var.enabled : var.disabled
 
   templates_path = "${path.module}/charts/${var.name}/templates/exec"
   templates      = fileset(local.templates_path, "*.yml.tftpl")
@@ -45,10 +54,38 @@ locals {
     content = filebase64("${local.templates_path}/envs/${var.environment}/${env}")
     }
   }
-  # templates_enabled = length(local.templates) > 0 ? length(local.templates) : 0
 
-  # serviceaccount_file = "${path.module}/charts/${var.name}/serviceaccount.json"
-  # iam_role_created    = fileexists(local.serviceaccount_file) ? var.enabled : 0
+  # Render context shared by the exec-phase templates.
+  tmpl_ctx = {
+    parameters  = var.parameters
+    namespace   = var.namespace
+    environment = var.environment
+  }
+
+  # Split each exec-phase template FILE into individual YAML docs, so one file may hold multiple
+  # resources (e.g. the keycloak operator bundle). Keyed by the filename for the FIRST doc — which
+  # preserves the pre-existing single-doc resource ADDRESSES (no destroy/recreate) — and
+  # "<file>#<n>" for any extra docs in the same file.
+  pre_template_docs = (var.enabled == 1 && length(local.pre_templates) > 0) ? merge([
+    for f in local.pre_templates : {
+      for i, doc in [for d in split("\n---\n", templatefile("${local.pre_templates_path}/${f}", local.tmpl_ctx)) : trimspace(d) if trimspace(d) != ""] :
+      (i == 0 ? f : "${f}#${i}") => doc
+    }
+  ]...) : {}
+
+  exec_template_docs = (var.enabled == 1 && length(local.templates) > 0) ? merge([
+    for f in local.templates : {
+      for i, doc in [for d in split("\n---\n", templatefile("${local.templates_path}/${f}", local.tmpl_ctx)) : trimspace(d) if trimspace(d) != ""] :
+      (i == 0 ? f : "${f}#${i}") => doc
+    }
+  ]...) : {}
+
+  post_template_docs = (var.enabled == 1 && length(local.post_templates) > 0) ? merge([
+    for f in local.post_templates : {
+      for i, doc in [for d in split("\n---\n", templatefile("${local.post_templates_path}/${f}", local.tmpl_ctx)) : trimspace(d) if trimspace(d) != ""] :
+      (i == 0 ? f : "${f}#${i}") => doc
+    }
+  ]...) : {}
 }
 
 resource "kubectl_manifest" "sc" {
@@ -61,7 +98,7 @@ resource "kubectl_manifest" "sc" {
   })
 }
 
-# Create the target namespace before the namespaced pre-helm manifests (tls) land.
+# Create the target namespace before the namespaced pre-helm manifests (tls) / manifest-mode docs.
 resource "kubectl_manifest" "namespace" {
   count = local.ns_created
 
@@ -72,9 +109,7 @@ resource "kubectl_manifest" "namespace" {
   })
 }
 
-# Pre-helm TLS manifests (cert-manager Issuer/Certificate chain). One resource per
-# YAML doc. cert-manager reconciles these asynchronously; ordering between docs is
-# not required (the CA Issuer/leaf become Ready once their backing Secret exists).
+# Pre-helm TLS manifests (cert-manager Issuer/Certificate chain). One resource per YAML doc.
 resource "kubectl_manifest" "tls" {
   count     = length(local.tls_docs)
   yaml_body = local.tls_docs[count.index]
@@ -83,21 +118,21 @@ resource "kubectl_manifest" "tls" {
 }
 
 resource "kubectl_manifest" "pre_templates" {
-  for_each = var.enabled == 1 ? toset(local.pre_templates) : toset([])
+  for_each = local.pre_template_docs
 
-  yaml_body = templatefile("${local.pre_templates_path}/${each.value}", {
-    parameters  = var.parameters
-    namespace   = var.namespace
-    environment = var.environment
-  })
+  yaml_body          = each.value
+  server_side_apply  = var.server_side_apply
+  force_conflicts    = var.server_side_apply
+  override_namespace = var.manifest_override_namespace
 
   depends_on = [
     helm_release.main,
+    kubectl_manifest.namespace,
   ]
 }
 
 resource "helm_release" "main" {
-  count            = var.enabled
+  count            = var.enabled == 1 && var.helm_release_enabled ? 1 : 0
   name             = var.name
   repository       = var.repository
   version          = var.chart_version
@@ -125,48 +160,46 @@ resource "helm_release" "main" {
   depends_on = [kubectl_manifest.namespace, kubectl_manifest.sc, kubectl_manifest.tls]
 }
 
-resource "kubectl_manifest" "templates" {
-  for_each = var.enabled == 1 ? toset(local.templates) : toset([])
-  # for_each = toset(local.templates)
+# Manifest-mode "main" (helm-less): values.yml.tftpl applied as raw manifest(s), e.g. a CR.
+resource "kubectl_manifest" "main" {
+  count = length(local.main_manifest_docs)
 
-  yaml_body = templatefile("${local.templates_path}/${each.value}", {
-    parameters  = var.parameters
-    namespace   = var.namespace
-    environment = var.environment
-  })
+  yaml_body          = local.main_manifest_docs[count.index]
+  server_side_apply  = var.server_side_apply
+  force_conflicts    = var.server_side_apply
+  override_namespace = var.manifest_override_namespace
+
+  depends_on = [
+    kubectl_manifest.namespace,
+    kubectl_manifest.pre_templates,
+  ]
+}
+
+resource "kubectl_manifest" "templates" {
+  for_each = local.exec_template_docs
+
+  yaml_body          = each.value
+  server_side_apply  = var.server_side_apply
+  force_conflicts    = var.server_side_apply
+  override_namespace = var.manifest_override_namespace
 
   depends_on = [
     helm_release.main,
+    kubectl_manifest.main,
   ]
 }
 
 resource "kubectl_manifest" "post_templates" {
-  for_each = var.enabled == 1 ? toset(local.post_templates) : toset([])
-  # for_each = toset(local.templates)
+  for_each = local.post_template_docs
 
-  yaml_body = templatefile("${local.post_templates_path}/${each.value}", {
-    parameters  = var.parameters
-    namespace   = var.namespace
-    environment = var.environment
-  })
+  yaml_body          = each.value
+  server_side_apply  = var.server_side_apply
+  force_conflicts    = var.server_side_apply
+  override_namespace = var.manifest_override_namespace
 
   depends_on = [
     helm_release.main,
+    kubectl_manifest.main,
+    kubectl_manifest.templates,
   ]
 }
-
-# resource "kubectl_manifest" "envs_templates" {
-#   for_each = var.enabled == 1 ? toset(local.env_files) : toset([])
-#   # for_each = toset(local.templates)
-#
-#   yaml_body = templatefile("${local.templates_path}/envs/${var.environment}/${each.value}", {
-#     parameters  = var.parameters
-#     namespace   = var.namespace
-#     environment = var.environment
-#   })
-#
-#   depends_on = [
-#     helm_release.main,
-#     # kubectl_manifest.secret_store
-#   ]
-# }

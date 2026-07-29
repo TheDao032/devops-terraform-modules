@@ -150,28 +150,36 @@ module "argocd-routing" {
 # to the EXTERNAL Citus Postgres (coordinator :5432, db=keycloak) — NOT in-cluster, NOT pgbouncer.
 # Admin bootstrap = the operator's auto-generated keycloak-initial-admin Secret.
 module "keycloak" {
-  source      = "../../shared/helm/charts/keycloak-operator"
-  enabled     = local.keycloak_enabled
-  environment = var.environment
-  namespace   = try(local.keycloak_kc.namespace, "keycloak")
-  keycloak_conf = {
-    hostname  = try(local.keycloak_kc.hostname, "keycloak.k3s.local")
-    instances = try(local.keycloak_kc.instances, 1)
-    image     = try(local.keycloak_kc.image, null)
+  source                      = "../../shared/helm"
+  enabled                     = local.keycloak_enabled
+  environment                 = var.environment
+  name                        = "keycloak-operator"
+  namespace                   = try(local.keycloak_kc.namespace, "keycloak")
+  repository                  = ""
+  chart_version               = ""
+  helm_release_enabled        = false                                        # manifest mode: raw operator YAML + Keycloak CR, not a Helm chart
+  server_side_apply           = true                                         # operator ClusterRoles exceed the client-side last-applied annotation limit
+  manifest_override_namespace = try(local.keycloak_kc.namespace, "keycloak") # upstream operator bundle ships namespace-less
+  host                        = var.host
+  client_key                  = var.client_key
+  client_certificate          = var.client_certificate
+  cluster_ca_certificate      = var.cluster_ca_certificate
+  token                       = var.token
+  tags                        = var.tags
+  parameters = {
+    keycloak = {
+      hostname  = try(local.keycloak_kc.hostname, "keycloak.k3s.local")
+      instances = try(local.keycloak_kc.instances, 1)
+      image     = try(local.keycloak_kc.image, "")
+    }
     db = {
       host     = try(local.keycloak_db.host, "")
       port     = try(local.keycloak_db.port, 5432)
       database = try(local.keycloak_db.database, "keycloak")
+      username = try(local.keycloak_db.username, "")
+      password = try(local.keycloak_db.password, "")
     }
   }
-  db_username            = try(local.keycloak_db.username, "")
-  db_password            = try(local.keycloak_db.password, "")
-  host                   = var.host
-  client_key             = var.client_key
-  client_certificate     = var.client_certificate
-  cluster_ca_certificate = var.cluster_ca_certificate
-  token                  = var.token
-  tags                   = var.tags
 }
 
 # Keycloak UI/API exposure — Gateway API HTTPRoute on the shared traefik-gateway `web` listener,

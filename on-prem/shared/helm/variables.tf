@@ -61,27 +61,42 @@ variable "name" {
 }
 
 variable "repository" {
-  description = "Helm chart repository URL."
+  description = "Helm chart repository URL. Empty in manifest mode (helm_release_enabled = false)."
   type        = string
-
-  validation {
-    condition     = length(trimspace(var.repository)) > 0
-    error_message = "repository must be a non-empty string."
-  }
+  default     = ""
 }
 
 variable "chart_version" {
-  description = "Helm chart version to install."
+  description = "Helm chart version to install. Empty in manifest mode (helm_release_enabled = false)."
   type        = string
-
-  validation {
-    condition     = length(trimspace(var.chart_version)) > 0
-    error_message = "chart_version must be a non-empty string."
-  }
+  default     = ""
 }
 
 variable "values_type" {
   description = "Selects the values template variant: values.<values_type>.yml.tftpl. Null uses the default values.yml.tftpl."
+  type        = string
+  default     = null
+}
+
+# ── Manifest (helm-less) mode ─────────────────────────────────────────────────
+# These three are opt-in; their defaults reproduce the classic Helm-chart behaviour exactly, so
+# existing charts are unaffected. Set them for operator/CR charts that aren't Helm charts (the
+# chart dir is still just values.yml.tftpl + templates/, e.g. keycloak-operator).
+
+variable "helm_release_enabled" {
+  description = "true = install a Helm chart (values.yml.tftpl = helm values). false = MANIFEST mode: NO helm_release; values.yml.tftpl is applied as raw kubectl manifest(s) — the 'main' resource (multi-doc split)."
+  type        = bool
+  default     = true
+}
+
+variable "server_side_apply" {
+  description = "Apply the chart's kubectl manifests (main + pre/exec/post) with server-side apply + force_conflicts. Needed for large manifests (operator ClusterRoles exceed the client-side last-applied annotation limit). Default false = client-side (unchanged for existing charts)."
+  type        = bool
+  default     = false
+}
+
+variable "manifest_override_namespace" {
+  description = "When set, forces this namespace onto the chart's kubectl manifests (main + pre/exec/post) via override_namespace — for upstream bundles shipped namespace-less (e.g. the keycloak operator). Null (default) = no override; cluster-scoped docs ignore it server-side."
   type        = string
   default     = null
 }
