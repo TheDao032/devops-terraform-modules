@@ -54,6 +54,9 @@ variable "roles" {
     metadata_capabilities = string
     delete_capabilities   = string
     destroy_capabilities  = string
+    # When true, the rendered policy path OMITS the env folder (path_root) — for cross-tier
+    # shared secrets like platform/* that live at <mount>/data/<path>, not <mount>/data/<env>/<path>.
+    absolute = optional(bool, false)
   })))
   default = {}
 
@@ -137,6 +140,8 @@ variable "k8s_auth" {
       metadata_capabilities = string
       delete_capabilities   = string
       destroy_capabilities  = string
+      # true → omit the env folder (path_root); for cross-tier shared secrets (platform/*).
+      absolute = optional(bool, false)
     }))
   }))
   default = {}

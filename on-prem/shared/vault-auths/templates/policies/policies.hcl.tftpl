@@ -1,4 +1,21 @@
 %{ for policy in policies ~}
+%{ if policy.absolute ~}
+path "${mount_path}/data/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.data_capabilities))}
+}
+
+path "${mount_path}/metadata/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.metadata_capabilities))}
+}
+
+path "${mount_path}/delete/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.delete_capabilities))}
+}
+
+path "${mount_path}/destroy/${policy.path}" {
+  capabilities = ${jsonencode(split(",", policy.destroy_capabilities))}
+}
+%{ else ~}
 path "${mount_path}/data/${path_root}/${policy.path}" {
   capabilities = ${jsonencode(split(",", policy.data_capabilities))}
 }
@@ -14,4 +31,5 @@ path "${mount_path}/delete/${path_root}/${policy.path}" {
 path "${mount_path}/destroy/${path_root}/${policy.path}" {
   capabilities = ${jsonencode(split(",", policy.destroy_capabilities))}
 }
+%{ endif ~}
 %{ endfor ~}
