@@ -107,6 +107,25 @@ variable "secrets" {
   }
 }
 
+variable "password_hashes" {
+  description = <<-EOT
+    Extra HASHED representations of a secret's password, stored as siblings named `<key>_<algo>`
+    (e.g. password_bcrypt). For config fields that want a pre-hashed password (e.g. ArgoCD's
+    argocdServerAdminPassword). algo in {bcrypt, sha256, sha512, sha1, md5}. bcrypt = salted + stable
+    (random_password.bcrypt_hash — computed once, no re-salt churn); sha*/md5 = UNSALTED hex.
+  EOT
+  type = map(object({
+    key  = optional(string, "password")
+    algo = string
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for h in values(var.password_hashes) : contains(["bcrypt", "sha256", "sha512", "sha1", "md5"], h.algo)])
+    error_message = "password_hashes algo must be one of: bcrypt, sha256, sha512, sha1, md5."
+  }
+}
+
 variable "tags" {
   description = "Resource tags applied where the provider supports them."
   type        = map(string)

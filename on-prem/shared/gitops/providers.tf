@@ -1,42 +1,18 @@
+# Source pins only — NO `provider` config blocks. The root (terragrunt's kube.hcl partial) generates
+# the configured kubectl/kubernetes/helm providers into the stack, and this module INHERITS them
+# automatically as a child module. Declaring a `provider "..." {}` here would (a) duplicate/override
+# that inherited config and (b) make this a "legacy module" that can't use count/for_each/depends_on.
+# Only alekc/kubectl strictly needs the source pin (community provider, not source-inferable).
 terraform {
   required_providers {
     kubectl = {
       source  = "alekc/kubectl"
-      version = "~> 2.1.3"
+      version = "~> 2.4.1"
     }
 
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.25.0"
+      version = "~> 3.2.1"
     }
   }
 }
-
-provider "kubectl" {
-  apply_retry_count = 1
-  load_config_file  = false
-
-  host                   = var.host
-  client_key             = base64decode("${var.client_key}")
-  client_certificate     = base64decode("${var.client_certificate}")
-  cluster_ca_certificate = base64decode("${var.cluster_ca_certificate}")
-  token                  = var.token
-}
-
-provider "kubernetes" {
-  host                   = var.host
-  client_key             = base64decode("${var.client_key}")
-  client_certificate     = base64decode("${var.client_certificate}")
-  cluster_ca_certificate = base64decode("${var.cluster_ca_certificate}")
-  token                  = var.token
-}
-
-# provider "helm" {
-#   kubernetes {
-#     host                   = var.host
-#     client_key             = base64decode("${var.client_key}")
-#     client_certificate     = base64decode("${var.client_certificate}")
-#     cluster_ca_certificate = base64decode("${var.cluster_ca_certificate}")
-#     token                  = var.token
-#   }
-# }

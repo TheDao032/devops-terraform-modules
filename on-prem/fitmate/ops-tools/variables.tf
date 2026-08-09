@@ -94,6 +94,19 @@ variable "kafka_conf" {
   }
 }
 
+variable "redis_conf" {
+  # intentionally any: freeform Redis Helm values (helm/master/auth/common blocks), sliced by
+  # try() in addons.tf and handed to the shared/helm module as opaque parameters.
+  description = "Configuration for Redis values (helm + master + auth + common blocks)."
+  type        = any
+  default     = {}
+
+  validation {
+    condition     = can(keys(var.redis_conf))
+    error_message = "redis_conf must be a map/object."
+  }
+}
+
 variable "consul_conf" {
   # intentionally any: freeform Consul Helm values (module currently commented out).
   description = "Configuration for Consul values."

@@ -23,11 +23,29 @@ locals {
     } if length({ for k, v in creds : k => v if contains(split(" ", v), "_RANDOM_") }) > 0
   }
 
-  # Merge original `secrets` values with generated passwords
+  # Stable hashed siblings (e.g. bcrypt for ArgoCD's argocdServerAdminPassword). random_password
+  # exposes .bcrypt_hash — computed ONCE with the password and stored in state, so it's stable (no
+  # bcrypt() re-salt churn). sha*/md5 are deterministic. Sibling key = "<key>_<algo>".
+  password_hash_siblings = {
+    for path, h in var.password_hashes :
+    path => {
+      "${h.key}_${h.algo}" = (
+        h.algo == "bcrypt" ? random_password.secrets["${path}_${h.key}"].bcrypt_hash :
+        h.algo == "sha256" ? sha256(random_password.secrets["${path}_${h.key}"].result) :
+        h.algo == "sha512" ? sha512(random_password.secrets["${path}_${h.key}"].result) :
+        h.algo == "sha1" ? sha1(random_password.secrets["${path}_${h.key}"].result) :
+        md5(random_password.secrets["${path}_${h.key}"].result)
+      )
+    }
+    if contains(keys(local.secrets_parameters), path)
+  }
+
+  # Merge original `secrets` values with generated passwords + any hashed siblings
   secrets = {
     for path, creds in var.secrets : path => merge(
       creds,
-      lookup(local.secrets_resolve_parameters, path, {})
+      lookup(local.secrets_resolve_parameters, path, {}),
+      lookup(local.password_hash_siblings, path, {}),
     )
   }
 

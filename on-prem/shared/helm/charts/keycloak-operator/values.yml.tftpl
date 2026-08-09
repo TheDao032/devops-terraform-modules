@@ -9,6 +9,12 @@ metadata:
   namespace: ${namespace}
 spec:
   instances: ${parameters.keycloak.instances}
+  # Bootstrap admin from a Secret we control (keycloak/admin/creds via Vault) instead of the
+  # operator's auto-generated temp-admin. NOTE: only consumed on the FIRST bootstrap of a fresh DB —
+  # an already-bootstrapped Keycloak keeps its existing admin until the keycloak DB is reset.
+  bootstrapAdmin:
+    user:
+      secret: keycloak-admin
 %{ if try(parameters.keycloak.image, "") != "" ~}
   image: ${parameters.keycloak.image}
 %{ endif ~}

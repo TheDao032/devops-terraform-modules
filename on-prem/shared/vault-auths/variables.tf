@@ -112,6 +112,65 @@ variable "users" {
   }
 }
 
+variable "k8s_auth" {
+  description = <<-EOT
+    Kubernetes auth roles (per-app), for in-cluster consumers like External Secrets Operator
+    SecretStores that authenticate with a pod ServiceAccount JWT instead of an AppRole secret_id
+    (no credential material in git). Each entry creates:
+      - a `vault_policy` (IDENTICAL rule shape + template as `roles`), AND
+      - a `vault_kubernetes_auth_backend_role` bound to (namespaces, service_accounts) with
+        token_policies = [<name>].
+    The Kubernetes auth backend + its config are created ONLY when this map is non-empty.
+      { <role_name> = {
+          namespaces       = list(string)   # bound_service_account_namespaces
+          service_accounts = list(string)   # bound_service_account_names
+          policies         = [ { path, data_capabilities, metadata_capabilities,
+                                 delete_capabilities, destroy_capabilities } ]  # same as roles
+      } }
+  EOT
+  type = map(object({
+    namespaces       = list(string)
+    service_accounts = list(string)
+    policies = list(object({
+      path                  = string
+      data_capabilities     = string
+      metadata_capabilities = string
+      delete_capabilities   = string
+      destroy_capabilities  = string
+    }))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for name, cfg in var.k8s_auth :
+      length(cfg.namespaces) > 0 && length(cfg.service_accounts) > 0
+    ])
+    error_message = "k8s_auth.<name> must bind at least one namespace and one service_account."
+  }
+}
+
+variable "k8s_host" {
+  description = <<-EOT
+    Kubernetes API server URL Vault uses for the TokenReview call when validating a pod's SA JWT.
+    This is resolved FROM VAULT'S POD (in-cluster), so the cluster-DNS default is correct; only
+    override for an external/edge Vault that reaches the API server another way.
+  EOT
+  type        = string
+  default     = "https://kubernetes.default.svc"
+}
+
+variable "k8s_auth_path" {
+  description = <<-EOT
+    Vault mount PATH for the Kubernetes auth backend this stack creates. Default "kubernetes".
+    On a SHARED Vault where another environment already owns the "kubernetes" backend (e.g. `local`
+    on a shared cluster), set a distinct path (e.g. "kubernetes-prod") so this env creates its OWN
+    backend + roles instead of colliding. ESO SecretStores must set auth.kubernetes.mountPath to match.
+  EOT
+  type        = string
+  default     = "kubernetes"
+}
+
 variable "tags" {
   description = "Resource tags applied where the provider supports them."
   type        = map(string)

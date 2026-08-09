@@ -41,10 +41,23 @@ locals {
   # external_secrets_common  = try(var.external_secrets_conf.common, {})
   # external_secrets_secret = var.external_secrets_conf.secret
 
-  # kafka_helm       = var.kafka_conf.helm
-  # kafka_controller = var.kafka_conf.controller
-  # kafka_broker     = var.kafka_conf.broker
-  # kafka_sasl       = var.kafka_conf.sasl
+  # Kafka (Bitnami Apache Kafka, KRaft, in-cluster only). Enabled only when the env supplies
+  # kafka_conf. try()-guarded so an empty conf resolves to safe defaults while disabled. No `broker`
+  # block: KRaft runs combined (controllerOnly=false) so only the controller pool is used.
+  kafka_enabled    = length(var.kafka_conf) > 0 ? local.enabled : local.disabled
+  kafka_helm       = try(var.kafka_conf.helm, {})
+  kafka_controller = try(var.kafka_conf.controller, {})
+  kafka_sasl       = try(var.kafka_conf.sasl, {})
+  kafka_common     = try(var.kafka_conf.common, {})
+
+  # Redis (Bitnami Redis, standalone, in-cluster only). Enabled only when the env supplies redis_conf
+  # (same gate as kafka). try()-guarded so an empty conf resolves to safe defaults while disabled. No
+  # replica/sentinel block: architecture=standalone in the values template uses only the master pool.
+  redis_enabled = length(var.redis_conf) > 0 ? local.enabled : local.disabled
+  redis_helm    = try(var.redis_conf.helm, {})
+  redis_master  = try(var.redis_conf.master, {})
+  redis_auth    = try(var.redis_conf.auth, {})
+  redis_common  = try(var.redis_conf.common, {})
 
   # ArgoCD (core). Enabled only when the env supplies argocd_conf — so the FIRST bring-up pass
   # (no argocd_conf) skips it, and a SECOND pass (after vault-secrets + external-secrets are
@@ -65,6 +78,7 @@ locals {
   keycloak_enabled = length(var.keycloak_conf) > 0 ? local.enabled : local.disabled
   keycloak_kc      = try(var.keycloak_conf.keycloak, {})
   keycloak_db      = try(var.keycloak_conf.db, {})
+  keycloak_admin   = try(var.keycloak_conf.admin, {})
   keycloak_routing = try(var.keycloak_conf.routing, {})
 
   # argocd_img_upd_helm   = var.argocd_img_upd_conf.helm
@@ -179,6 +193,10 @@ module "keycloak" {
       username = try(local.keycloak_db.username, "")
       password = try(local.keycloak_db.password, "")
     }
+    admin = {
+      username = try(local.keycloak_admin.username, "admin")
+      password = try(local.keycloak_admin.password, "")
+    }
   }
 }
 
@@ -255,24 +273,58 @@ module "keycloak-routing" {
 #   }
 # }
 
-# module "kafka" {
-#   source                 = "../helm"
-#   enabled                = local.disabled
-#   environment            = var.environment
-#   name                   = local.kafka_helm.release_name
-#   namespace              = local.kafka_helm.namespace
-#   repository             = local.kafka_helm.repository
-#   chart_version          = local.kafka_helm.chart_version
-#   host                   = var.host
-#   client_key             = var.client_key
-#   client_certificate     = var.client_certificate
-#   cluster_ca_certificate = var.cluster_ca_certificate
-#   token                  = var.token
-#   tags                   = var.tags
-#   parameters = {
-#     values = local.kafka_values
-#   }
-# }
+# Kafka (Bitnami Apache Kafka, KRaft, IN-CLUSTER ONLY) — Helm install into the `tools` namespace.
+# Enabled only when the env supplies kafka_conf (same gate as argocd/keycloak). The shared/helm module
+# renders charts/kafka/values.yml.tftpl against these `parameters` sub-maps (common/controller/sasl) —
+# same structured-parameters style as the argocd/keycloak modules above, NOT a pre-rendered values blob.
+# externalAccess is DISABLED in the template → consumers use cluster DNS: kafka.tools.svc.cluster.local:9092.
+module "kafka" {
+  source                 = "../../shared/helm"
+  enabled                = local.kafka_enabled
+  environment            = var.environment
+  name                   = try(local.kafka_helm.release_name, "kafka")
+  namespace              = try(local.kafka_helm.namespace, "tools")
+  repository             = try(local.kafka_helm.repository, "")
+  chart_version          = try(local.kafka_helm.chart_version, "")
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    common     = local.kafka_common
+    controller = local.kafka_controller
+    sasl       = local.kafka_sasl
+  }
+}
+
+# Redis (Bitnami Redis, STANDALONE, IN-CLUSTER ONLY) — Helm install into the `tools` namespace.
+# Enabled only when the env supplies redis_conf (same gate as kafka). The shared/helm module renders
+# charts/redis/values.yml.tftpl against these `parameters` sub-maps (common/master/auth) — same
+# structured-parameters style as the kafka/argocd/keycloak modules above, NOT a pre-rendered values
+# blob. No external access in the template → consumers use cluster DNS: the master Service is
+# <release>-redis-master.tools.svc.cluster.local:6379 (release `redis` → redis-redis-master).
+module "redis" {
+  source                 = "../../shared/helm"
+  enabled                = local.redis_enabled
+  environment            = var.environment
+  name                   = try(local.redis_helm.release_name, "redis")
+  namespace              = try(local.redis_helm.namespace, "tools")
+  repository             = try(local.redis_helm.repository, "")
+  chart_version          = try(local.redis_helm.chart_version, "")
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    common = local.redis_common
+    master = local.redis_master
+    auth   = local.redis_auth
+  }
+}
 
 # module "argocd-routing" {
 #   source                 = "../routing"

@@ -1,0 +1,38 @@
+# ArgoCD bootstrap → the FitMate GitOps repo (fitmate-gitops, ADR-032). Terraform seeds ONE thin
+# Application that syncs FitMate's OWN AppProject (projects/fitmate-apps.yaml) + the per-env root
+# (bootstrap/root-<env>.yaml) straight from the repo; their root Application then self-manages
+# apps/<env>/*. We deliberately do NOT define the project/root here — the repo owns them (so the
+# per-app-namespace rework FitMate is doing lands automatically). Repo is private + HTTPS under the
+# FITMate-Platform org; ArgoCD authenticates via the https-creds credentialTemplate (PAT).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fitmate-bootstrap
+  namespace: ${namespace}
+spec:
+  project: default
+  source:
+    repoURL: ${parameters.github.url}/${parameters.github.gitops_repo}
+    targetRevision: main
+    path: .
+    directory:
+      recurse: true
+      # SINGLE-CLUSTER, ALL-LANES model: one ArgoCD/one cluster runs dev + stg + prod together,
+      # isolated by env-scoped namespaces (fitmate-<app> / fitmate-<app>-stg / fitmate-<app>-prod),
+      # NOT by cluster. So the bootstrap pulls EVERY root (bootstrap/root-*.yaml), not just the
+      # local env's — `${environment}` no longer gates root selection. The per-env roots each filter
+      # their own lane's apps (apps/<app>/<env>/*), so mixing them on one ArgoCD is safe.
+      # NOTE: root-dev/root-stg/root-prod MUST all use an AppProject that permits the `argocd`
+      # destination + argoproj.io/Application kind (app-of-apps writes child Applications into
+      # `argocd`); the `fitmate-bootstrap` AppProject in the gitops repo provides exactly that.
+      # `projects/*.yaml` is still synced (env-agnostic; creates fitmate-apps/fitmate-prod/etc.).
+      include: "{projects/*.yaml,bootstrap/root-*.yaml}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${namespace}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

@@ -1,7 +1,38 @@
+# Bitnami Apache Kafka (KRaft), chart 32.4.3 — IN-CLUSTER ONLY, right-sized for the k3s lab.
+#
+# ── Bitnami image deprecation (CRITICAL, Aug 28 2025) ────────────────────────────────────────────
+# docker.io/bitnami/* images were DELETED and moved (frozen) to docker.io/bitnamilegacy/*. Chart
+# 32.4.3's default images all point at bitnami/* → they now ImagePullBackOff. The ORG (repo path
+# prefix) changed, not the registry host — so `global.imageRegistry` alone does NOT fix it; every
+# image's `repository` must be repointed from `bitnami/<name>` to `bitnamilegacy/<name>`. Bitnami's
+# image-verification guard then blocks these as "non-official" unless global.security.allowInsecureImages=true.
 global:
   storageClass: ${parameters.common.sc_name}
+  security:
+    # REQUIRED: unblocks the non-official-image guard so the bitnamilegacy/* overrides below render.
+    allowInsecureImages: true
 
-heapOpts: -XX:InitialRAMPercentage=75 -XX:MaxRAMPercentage=75
+# Top-level Kafka image (also reused by the provisioning Job — no separate override needed there).
+image:
+  registry: docker.io
+  repository: bitnamilegacy/kafka
+
+# Init-container images (chart 32.4.3 consolidates these under defaultInitContainers).
+# autoDiscovery (kubectl) only runs with externalAccess.autoDiscovery — DISABLED below — but repoint
+# it anyway so nothing can ImagePullBackOff. volumePermissions (os-shell) runs when the fs-group init
+# is needed. Both repointed to bitnamilegacy.
+defaultInitContainers:
+  volumePermissions:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/os-shell
+  autoDiscovery:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/kubectl
+
+# Global heap fallback (KRaft controller/broker pods set their own below; this covers other pods).
+heapOpts: -Xmx512m -Xms512m
 
 sasl:
   client:
@@ -10,22 +41,21 @@ sasl:
     passwords: ${parameters.sasl.client_password}
 
 controller:
-  # Kafka resource requests and limits
-  # ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-  # @param controller.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge). This is ignored if controller.resources is set (controller.resources is recommended for production).
-  # More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
-  resourcesPreset: "medium"
+  # Small preset (~256Mi req / ~768Mi limit) — sized for ~1–2Gi free/node in the lab.
+  # ref: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl
+  resourcesPreset: "small"
   # resources:
   #   requests:
-  #     cpu: 2
-  #     memory: 512Mi
+  #     cpu: 250m
+  #     memory: 256Mi
   #   limits:
-  #     cpu: 3
-  #     memory: 1024Mi
+  #     cpu: "1"
+  #     memory: 768Mi
   replicaCount: ${parameters.controller.replica_count}
   automountServiceAccountToken: true
+  # KRaft COMBINED mode: this pool acts as controller AND broker (no dedicated broker pool).
   controllerOnly: false
-  heapOpts: -Xmx1024m -Xms1024m
+  heapOpts: -Xmx512m -Xms512m
   persistence:
     enabled: true
     storageClass: ${parameters.common.sc_name}
@@ -37,10 +67,11 @@ controller:
       minReplicas: ${parameters.controller.min_replicas}
       maxReplicas: ${parameters.controller.max_replicas}
 
+# No dedicated broker pool — KRaft combined mode uses only the controller pool above.
 #broker:
 #  replicaCount: $${parameters.broker.replica_count}
 #  automountServiceAccountToken: true
-#  heapOpts: -Xmx1024m -Xms1024m
+#  heapOpts: -Xmx512m -Xms512m
 #  persistence:
 #    enabled: true
 #    storageClass: $${parameters.common.sc_name}
@@ -52,13 +83,12 @@ controller:
 #      minReplicas: $${parameters.broker.min_replicas}
 #      maxReplicas: $${parameters.broker.max_replicas}
 
+# IN-CLUSTER ONLY: no external LoadBalancer / NodePort, no autoDiscovery init container.
+# Consumers reach the broker over cluster DNS at kafka.tools.svc.cluster.local:9092 (SASL).
 externalAccess:
   autoDiscovery:
-    enabled: true
-  enabled: true
-  controller:
-    service:
-      type: LoadBalancer
+    enabled: false
+  enabled: false
 
 serviceAccount:
   create: true
@@ -69,10 +99,19 @@ rbac:
 metrics:
   jmx:
     enabled: true
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/jmx-exporter
 
 kraft:
+  # STABLE cluster id — a VALID 22-char base64 KRaft UUID that MUST stay fixed across redeploys.
+  # Bitnami charts retain the PVC on uninstall, so a reinstall lands on already-formatted storage;
+  # if the cluster id differs, `kafka-storage.sh format` fails at "Formatting storage directories"
+  # → CrashLoopBackOff. The old placeholder `kraft_cluster` was NOT a valid id, so Kafka ignored it
+  # and generated a RANDOM id every format — which is exactly what caused the mismatch. This value is
+  # the id currently on disk (kubectl exec … cat meta.properties), so live + future redeploys agree.
   enabled: true
-  clusterId: kraft_cluster
+  clusterId: pYa6XMHPya8tbPqCbCzjz0
 
 zookeeper:
   enabled: false

@@ -6,18 +6,39 @@ configs:
     admin.enabled: true
   params:
     server.insecure: true
+  # HTTPS credential for the private fitmate-gitops repo (FITMate-Platform org). Matched by URL prefix
+  # to the repositories entry below. username + PAT come from Vault github/creds. (Was an SSH deploy-key
+  # credentialTemplate for the retired git@github.com:TheDao032/gitops-apps repo.)
   credentialTemplates:
-    ssh-creds:
+    https-creds:
       url: ${parameters.github.url}
-      sshPrivateKey: |
-        ${indent(8, parameters.github.ssh_priv_key)}
+      username: ${parameters.github.username}
+      password: ${parameters.github.token}
   repositories:
-    gitops-apps:
+    fitmate-gitops:
       url: ${parameters.github.url}/${parameters.github.gitops_repo}
-      name: gitops-apps
+      name: fitmate-gitops
+      type: git
       project: default
+    # OCI Helm credential for the PRIVATE per-service charts on GHCR (ghcr.io/fitmate-platform,
+    # ADR-037). The child Applications' first source is `repoURL: ghcr.io/fitmate-platform` +
+    # `chart: fitmate-<svc>` — pulling it needs an OCI-enabled helm repo cred, SEPARATE from the git
+    # cred above. Without this, `helm pull oci://ghcr.io/...` gets HTTP 401 unauthorized (the package
+    # is private). Same github PAT (it already carries read:packages); prod should later swap to a
+    # dedicated read:packages-only token. enableOCI + type helm are what mark this as an OCI registry.
+    fitmate-ghcr-charts:
+      url: ghcr.io/fitmate-platform
+      name: fitmate-ghcr-charts
+      type: helm
+      enableOCI: "true"
+      username: ${parameters.github.username}
+      password: ${parameters.github.token}
 
   secret:
+    # This chart field wants a BCRYPT HASH, not plaintext. The hash is pre-computed (stably) in the
+    # vault-secrets module via random_password.bcrypt_hash and delivered here as admin_password
+    # (ops-tools reads argocd/creds.password_bcrypt). DO NOT call bcrypt() here — it's
+    # non-deterministic and templatefile() rejects it ("function returned an inconsistent result").
     argocdServerAdminPassword: ${parameters.common.admin_password}
 
 server:

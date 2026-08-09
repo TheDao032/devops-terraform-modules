@@ -1,0 +1,82 @@
+# Bitnami Redis, chart 21.2.14 — IN-CLUSTER ONLY, right-sized for the k3s lab (standalone).
+#
+# ── Bitnami image deprecation (CRITICAL, Aug 28 2025) ────────────────────────────────────────────
+# docker.io/bitnami/* images were DELETED and moved (frozen) to docker.io/bitnamilegacy/*. Chart
+# 21.2.14's default images all point at bitnami/* → they now ImagePullBackOff. The ORG (repo path
+# prefix) changed, not the registry host — so `global.imageRegistry` alone does NOT fix it; every
+# image's `repository` must be repointed from `bitnami/<name>` to `bitnamilegacy/<name>`. Bitnami's
+# image-verification guard then blocks these as "non-official" unless global.security.allowInsecureImages=true.
+# (Identical override strategy to charts/kafka/values.yml.tftpl.)
+global:
+  storageClass: ${parameters.common.sc_name}
+  security:
+    # REQUIRED: unblocks the non-official-image guard so the bitnamilegacy/* overrides below render.
+    allowInsecureImages: true
+
+# STANDALONE (not replication/sentinel): a single master, 0 replicas — saves RAM in the lab.
+# Consumers reach it over cluster DNS at <release>-redis-master.tools.svc.cluster.local:6379.
+architecture: standalone
+
+# Top-level Redis image — used by the master (and would-be replicas). Repointed to bitnamilegacy.
+image:
+  registry: docker.io
+  repository: bitnamilegacy/redis
+
+# Auth: Redis default user is `default`; this password is REQUIRED to AUTH. The chart mints its own
+# Secret from auth.password (usePasswordFiles=true default → mounted as a file, not an env var).
+# Password comes from Vault (redis/creds.password) via parameters.auth.password — same pattern as
+# kafka passing parameters.sasl.client_password.
+auth:
+  enabled: true
+  password: ${parameters.auth.password}
+
+master:
+  count: 1
+  # Small preset (~128Mi req / ~512Mi limit) — sized for ~1–2Gi free/node in the lab.
+  # ref: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl
+  resourcesPreset: "small"
+  persistence:
+    enabled: true
+    storageClass: ${parameters.common.sc_name}
+    size: ${parameters.master.size}
+
+# Standalone → no replica pool. replicaCount 0 keeps the chart from scheduling replica pods.
+replica:
+  replicaCount: 0
+
+# volumePermissions runs an os-shell init container to chown the PVC when the fs-group init is
+# needed. Off by default in this chart, but repoint it so nothing can ImagePullBackOff if enabled.
+volumePermissions:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/os-shell
+
+# sysctl init (os-shell) — disabled by default; repointed defensively.
+sysctl:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/os-shell
+
+# kubectl init image (used only by sentinel/replica reconfig flows — inert in standalone).
+# Repointed defensively so no code path can pull a deleted bitnami/* image.
+kubectl:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/kubectl
+
+# Prometheus exporter — OFF in the lab to save RAM (mirrors "lab-sized"). If turned on, its image
+# is already repointed to bitnamilegacy so it won't ImagePullBackOff.
+metrics:
+  enabled: false
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis-exporter
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
+
+# IN-CLUSTER ONLY: the master Service is a plain ClusterIP (chart default) — no LoadBalancer /
+# NodePort. Consumers reach Redis over cluster DNS at redis-redis-master.tools.svc.cluster.local:6379.

@@ -14,14 +14,14 @@
 #   )
 # }
 
-resource "kubernetes_service_account" "traefik_sa" {
+resource "kubernetes_service_account_v1" "traefik_sa" {
   metadata {
     name      = "terraform-traefik"
     namespace = "kube-system"
   }
 }
 
-resource "kubernetes_cluster_role" "traefik_manager" {
+resource "kubernetes_cluster_role_v1" "traefik_manager" {
   metadata {
     name = "terraform-traefik-manager"
   }
@@ -32,7 +32,7 @@ resource "kubernetes_cluster_role" "traefik_manager" {
   }
 }
 
-resource "kubernetes_cluster_role_binding" "traefik_manager_binding" {
+resource "kubernetes_cluster_role_binding_v1" "traefik_manager_binding" {
   metadata {
     name = "terraform-traefik-manager-binding"
   }
@@ -40,22 +40,22 @@ resource "kubernetes_cluster_role_binding" "traefik_manager_binding" {
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = kubernetes_cluster_role.traefik_manager.metadata[0].name
+    name      = kubernetes_cluster_role_v1.traefik_manager.metadata[0].name
   }
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account.traefik_sa.metadata[0].name
-    namespace = kubernetes_service_account.traefik_sa.metadata[0].namespace
+    name      = kubernetes_service_account_v1.traefik_sa.metadata[0].name
+    namespace = kubernetes_service_account_v1.traefik_sa.metadata[0].namespace
   }
 }
 
-resource "kubernetes_secret" "traefik_sa_token" {
+resource "kubernetes_secret_v1" "traefik_sa_token" {
   metadata {
-    name      = "${kubernetes_service_account.traefik_sa.metadata[0].name}-token"
-    namespace = kubernetes_service_account.traefik_sa.metadata[0].namespace
+    name      = "${kubernetes_service_account_v1.traefik_sa.metadata[0].name}-token"
+    namespace = kubernetes_service_account_v1.traefik_sa.metadata[0].namespace
     annotations = {
-      "kubernetes.io/service-account.name" = kubernetes_service_account.traefik_sa.metadata[0].name
+      "kubernetes.io/service-account.name" = kubernetes_service_account_v1.traefik_sa.metadata[0].name
     }
   }
 

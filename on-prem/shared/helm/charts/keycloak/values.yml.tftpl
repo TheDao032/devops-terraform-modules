@@ -1,45 +1,45 @@
 # global:
-#   storageClass: "$${keycloak.storage.class_name}"
+#   storageClass: "$${parameters.keycloak.storage.class_name}"
 
 resources:
   requests:
-    cpu: ${keycloak.resources.rq_cpu}
-    memory: ${keycloak.resources.rq_mem}
+    cpu: ${parameters.keycloak.resources.rq_cpu}
+    memory: ${parameters.keycloak.resources.rq_mem}
   limits:
-    cpu: ${keycloak.resources.limits_cpu}
-    memory: ${keycloak.resources.limits_mem}
+    cpu: ${parameters.keycloak.resources.limits_cpu}
+    memory: ${parameters.keycloak.resources.limits_mem}
 
 extraEnvVars:
   - name: KEYCLOAK_HOSTNAME
-    value: "http://${keycloak_host}${keycloak.ingress.prefix}"
+    value: "http://${parameters.keycloak_host}${parameters.keycloak.ingress.prefix}"
   - name: KEYCLOAK_ENABLE_STATISTICS
     value: "true"
   - name: KEYCLOAK_PROXY_HEADERS
     value: "forwarded"
 
 auth:
-  adminUser: ${keycloak.auth.admin_username}
-  adminPassword: ${keycloak.auth.admin_password}
+  adminUser: ${parameters.keycloak.auth.admin_username}
+  adminPassword: ${parameters.keycloak.auth.admin_password}
 
 postgresql:
   enabled: true
   auth:
-    postgresPassword: ${keycloak.database.pg_password}
-    username: ${keycloak.database.username}
-    password: ${keycloak.database.password}
-    database: ${keycloak.database.database}
+    postgresPassword: ${parameters.keycloak.database.pg_password}
+    username: ${parameters.keycloak.database.username}
+    password: ${parameters.keycloak.database.password}
+    database: ${parameters.keycloak.database.database}
 
 keycloakConfigCli:
   image:
     tag: latest
   enabled: true
   configuration:
-    ${realm.name}.json: |
+    ${parameters.realm.name}.json: |
       {
-        "realm" : ${realm.name},
+        "realm" : ${parameters.realm.name},
         "enabled": true,
         "clients": [
-        %{ for client in clients ~}
+        %{ for client in parameters.clients ~}
 
           {
             "clientId": ${client.id},
@@ -142,7 +142,7 @@ keycloakConfigCli:
         ],
         "components": {
           "org.keycloak.storage.UserStorageProvider": [
-          %{ for provider in user_federations ~}
+          %{ for provider in parameters.user_federations ~}
           %{ if provider.name == "ldap" ~}
 
             {
@@ -187,8 +187,8 @@ keycloakConfigCli:
 #   annotations:
 #     kubernetes.io/ingress.class: "traefik"
 #     traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-#     traefik.ingress.kubernetes.io/router.middlewares: $${namespace}-$${keycloak.ingress.strip_prefix}@kubernetescrd
-#   path: $${keycloak.ingress.prefix}
+#     traefik.ingress.kubernetes.io/router.middlewares: $${namespace}-$${parameters.keycloak.ingress.strip_prefix}@kubernetescrd
+#   path: $${parameters.keycloak.ingress.prefix}
 #   hostname: "keycloak.local"
 #
 # adminIngress:
@@ -198,15 +198,15 @@ keycloakConfigCli:
 #   annotations:
 #     kubernetes.io/ingress.class: "traefik"
 #     traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-#     traefik.ingress.kubernetes.io/router.middlewares: $${namespace}-$${keycloak.admin_ingress.strip_prefix}@kubernetescrd
-#   path: $${keycloak.admin_ingress.prefix}
+#     traefik.ingress.kubernetes.io/router.middlewares: $${namespace}-$${parameters.keycloak.admin_ingress.strip_prefix}@kubernetescrd
+#   path: $${parameters.keycloak.admin_ingress.prefix}
 #   hostname: "keycloak.admin"
 
 # stg.yaml: |
 #   realm: stg
 #   enabled: true
 #   clients: [
-#     %{ for client in clients ~}
+#     %{ for client in parameters.clients ~}
 #
 #     clientId: $${client.id}
 #     name: $${client.name}
