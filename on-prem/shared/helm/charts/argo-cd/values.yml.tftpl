@@ -4,6 +4,11 @@ global:
 configs:
   cm:
     admin.enabled: true
+    # How often ArgoCD polls git + re-reconciles EVERY Application (chart/ArgoCD default = 180s).
+    # 30s = near-real-time sync for this lab. NOTE: for INSTANT sync, prefer a GitHub webhook
+    # (POST /api/webhook) over aggressive polling — a short interval re-lists all resources for
+    # every app each tick (heavier as app count grows). Takes effect on the next argo-cd apply.
+    timeout.reconciliation: 30s
   params:
     server.insecure: true
   # HTTPS credential for the private fitmate-gitops repo (FITMate-Platform org). Matched by URL prefix
