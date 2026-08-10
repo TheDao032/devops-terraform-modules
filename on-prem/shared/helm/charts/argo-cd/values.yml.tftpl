@@ -9,6 +9,19 @@ configs:
     # (POST /api/webhook) over aggressive polling — a short interval re-lists all resources for
     # every app each tick (heavier as app count grows). Takes effect on the next argo-cd apply.
     timeout.reconciliation: 30s
+    # external-secrets' CRD defaults three fields into every ExternalSecret at admission
+    # (conversionStrategy/decodingStrategy/metadataPolicy on each remoteRef + extract). The gitops
+    # charts don't set them, so ArgoCD sees live≠git and pins every ExternalSecret to OutOfSync
+    # forever (Healthy, but noisy — re-applying git can't strip a server-defaulted field). Ignore
+    # those defaulted paths fleet-wide so ExternalSecrets report Synced. Real spec changes still diff.
+    resource.customizations.ignoreDifferences.external-secrets.io_ExternalSecret: |
+      jqPathExpressions:
+        - '.spec.data[]?.remoteRef.conversionStrategy'
+        - '.spec.data[]?.remoteRef.decodingStrategy'
+        - '.spec.data[]?.remoteRef.metadataPolicy'
+        - '.spec.dataFrom[]?.extract.conversionStrategy'
+        - '.spec.dataFrom[]?.extract.decodingStrategy'
+        - '.spec.dataFrom[]?.extract.metadataPolicy'
   params:
     server.insecure: true
   # HTTPS credential for the private fitmate-gitops repo (FITMate-Platform org). Matched by URL prefix
