@@ -34,6 +34,24 @@ defaultInitContainers:
 # Global heap fallback (KRaft controller/broker pods set their own below; this covers other pods).
 heapOpts: -Xmx512m -Xms512m
 
+# ── Single-broker internal-topic replication (CRITICAL when controller.replicaCount = 1) ───────────
+# Kafka's internal topics default to replication.factor=3 / min.insync.replicas=2. A 1-broker cluster
+# can NEVER place 3 replicas, so the controller silently fails to create __consumer_offsets
+# (CreateTopics → INVALID_REPLICATION_FACTOR, retried forever, logged only at INFO as "Sent
+# auto-creation request …") and every consumer loops on "Group Coordinator Not Available" [error 15].
+# It is NOT surfaced as an ERROR and SURVIVES pod restarts / PVC wipes — it's config, not data. Pin
+# all internal-topic RF/min.isr to 1 so a single broker can host them. Revisit if replica_count ≥ 3.
+#
+# `overrideConfiguration` (chart 32.4.3) MERGES over the auto-generated server.properties — overriding
+# only these keys. Do NOT use `config` (that REPLACES the whole file, dropping the SASL/KRaft/listener
+# setup). Keys are literal dotted Kafka property names; values quoted so YAML keeps them as strings.
+overrideConfiguration:
+  offsets.topic.replication.factor: "1"
+  transaction.state.log.replication.factor: "1"
+  transaction.state.log.min.isr: "1"
+  share.coordinator.state.topic.replication.factor: "1"
+  share.coordinator.state.topic.min.isr: "1"
+
 sasl:
   client:
     users:
