@@ -104,11 +104,18 @@ resource "random_password" "secrets" {
 }
 
 resource "vault_kv_secret_v2" "secrets" {
-  for_each     = local.secrets
-  name         = "${var.path_prefix}${each.key}"
-  mount        = var.kv_mount_path
-  disable_read = true
+  for_each = local.secrets
+  name     = "${var.path_prefix}${each.key}"
+  mount    = var.kv_mount_path
 
+  # Read-back is intentionally ENABLED (do NOT set disable_read = true). The apply identity's
+  # `admin` policy already grants read on <mount>/{data,metadata}/platform/* (and the per-env
+  # prefixes), so Terraform refreshes each secret against Vault on every plan. This is what makes
+  # a rebuilt cluster self-heal: local state (.terragrunt-cache) outlives a `vagrant destroy`, so
+  # after the cluster is recreated the state still lists these secrets. With read enabled the
+  # refresh GET 404s on the wiped Vault → Terraform drops them from state → plan recreates them.
+  # With disable_read = true, refresh is a no-op → Terraform can't see the drift → it silently
+  # skips rewriting and the KV mount comes up empty (root cause of the 2026-08-14 rebuild miss).
   data_json = jsonencode(
     each.value
   )

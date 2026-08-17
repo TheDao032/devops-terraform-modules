@@ -73,14 +73,15 @@ ports:
 
 # ── Dashboard / API ──────────────────────────────────────────────────────────
 # Dashboard served internally (api@internal) and exposed via the CHART's built-in IngressRoute
-# (this replaces the old routing-module dashboard.yml.tftpl — exactly ONE owner now). The host is
-# derived from the environment (env=local → traefik.k3s.local); map it in /etc/hosts. For a custom
-# per-tenant domain, plumb the host in as a caller parameter instead of the env-derived pattern.
+# (this replaces the old routing-module dashboard.yml.tftpl — exactly ONE owner now). The host
+# defaults to the env-derived pattern (env=local → traefik.k3s.local; map it in /etc/hosts) UNLESS
+# the caller passes `parameters.dashboard_host`. FitMate sets it to `traefik.k3s.fitmate` so the
+# dashboard matches the cluster suffix keycloak/vault/argocd already use (this chart's env = "shared").
 api:
   dashboard: true
 ingressRoute:
   dashboard:
     enabled: true
-    matchRule: Host(`traefik.k3s.${environment}`)
+    matchRule: Host(`${try(parameters.dashboard_host, "traefik.k3s.${environment}")}`)
     entryPoints:
       - web

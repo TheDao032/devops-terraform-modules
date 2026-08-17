@@ -37,6 +37,17 @@ variable "realm" {
       # Custom audiences added to this client's ACCESS token (e.g. "fitmate-backend"). Services that
       # validate `aud` require this — Keycloak's default aud is `account`, not your backend.
       audiences = optional(list(string), [])
+      # Roles from the realm's built-in `realm-management` client, granted to THIS client's service
+      # account — i.e. what it may do via the Keycloak ADMIN REST API. Requires
+      # service_accounts_enabled = true (validated below).
+      #
+      # Grant the narrowest set that works: a backend that only creates users and assigns realm
+      # roles needs ["manage-users", "view-users"] — NOT "realm-admin", which is full control of
+      # the realm and would let a leaked client secret rewrite the whole IdP.
+      #
+      # Common roles: manage-users · view-users · query-users · manage-realm · view-realm ·
+      # manage-clients · view-clients · realm-admin (all of the above — avoid).
+      service_account_roles = optional(list(string), [])
     })), [])
 
     users = optional(list(object({
@@ -57,6 +68,17 @@ variable "realm" {
   validation {
     condition     = contains(["none", "external", "all"], var.realm.ssl_required)
     error_message = "realm.ssl_required must be one of: none, external, all."
+  }
+
+  # A client with service_account_roles but no service account has no user to grant them to:
+  # keycloak_openid_client.service_account_user_id would be null and the apply fails deep inside
+  # the grant resource with an opaque provider error. Catch it at plan time instead.
+  validation {
+    condition = alltrue([
+      for c in var.realm.clients :
+      c.service_accounts_enabled if length(c.service_account_roles) > 0
+    ])
+    error_message = "A client with service_account_roles must also set service_accounts_enabled = true."
   }
 }
 

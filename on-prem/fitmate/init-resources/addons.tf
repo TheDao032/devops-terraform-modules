@@ -166,6 +166,12 @@ module "traefik" {
   token                  = var.token
   tags                   = var.tags
 
+  # Dashboard IngressRoute host: override the chart's env-derived default (env here = "shared") so the
+  # dashboard is reachable at traefik.k3s.fitmate — matching the cluster suffix keycloak/vault/argocd use.
+  parameters = {
+    dashboard_host = "traefik.k3s.fitmate"
+  }
+
   depends_on = [module.gateway-api-crds]
 }
 
