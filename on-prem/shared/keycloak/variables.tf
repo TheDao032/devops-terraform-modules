@@ -6,7 +6,7 @@
 # configured by keycloak.hcl (generate) — so NO providers.tf here, same as the database module.
 
 variable "keycloak_url" {
-  description = "Base URL of Keycloak (used to render the realm issuer output). Match the provider URL, e.g. http://keycloak.k3s.local."
+  description = "Base URL of Keycloak (used to render the realm issuer output). Match the provider URL, e.g. http://keycloak.k3s.fitmate."
   type        = string
 }
 

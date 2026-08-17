@@ -182,7 +182,13 @@ module "keycloak" {
   tags                        = var.tags
   parameters = {
     keycloak = {
-      hostname  = try(local.keycloak_kc.hostname, "keycloak.k3s.local")
+      # FALLBACK is functional, not decorative: if keycloak_kc.hostname is unset this value is
+      # what the Keycloak CR is deployed with, and it becomes the `iss` claim of every token
+      # the realm issues. The lab domain is .k3s.fitmate — keycloak.k3s.local is dead.
+      # gitleaks:allow — a DNS hostname, not a credential. gitleaks' generic-api-key rule
+      # scores "keycloak.k3s.fitmate" at entropy 3.68 purely because "fitmate" is not a
+      # dictionary word (the old .k3s.local passed for that reason alone).
+      hostname  = try(local.keycloak_kc.hostname, "keycloak.k3s.fitmate") # gitleaks:allow
       instances = try(local.keycloak_kc.instances, 1)
       image     = try(local.keycloak_kc.image, "")
     }
