@@ -51,6 +51,27 @@ configs:
       enableOCI: "true"
       username: ${parameters.github.username}
       password: ${parameters.github.token}
+    # SCRUM-216 — charts moved OUT of the image namespace to ghcr.io/fitmate-platform/charts,
+    # because publishing both to one repo meant that for stg/prod (where ADR-042 makes the chart
+    # version and image tag IDENTICAL) the chart push OVERWROTE the image at the same repo:tag.
+    #
+    # A SECOND entry is required, not a widening of the one above. `repositories` entries are
+    # matched by EXACT url — `ghcr.io/fitmate-platform` does NOT cover
+    # `ghcr.io/fitmate-platform/charts`. Observed: ArgoCD fell through to an anonymous pull and
+    # the Application went ComparisonError with
+    #   helm pull oci://ghcr.io/fitmate-platform/charts/fitmate-inquiry-service ...
+    #   GET https://ghcr.io/token?scope=repository:fitmate-platform/charts/...:pull
+    #   response status code 401: unauthorized: authentication required
+    # (`credentialTemplates` above IS prefix-matched and would in principle cover both, but the
+    # explicit entry is what the legacy path has already proven in this cluster — preferred over
+    # relying on prefix semantics for a private OCI registry.)
+    fitmate-ghcr-charts-oci:
+      url: ghcr.io/fitmate-platform/charts
+      name: fitmate-ghcr-charts-oci
+      type: helm
+      enableOCI: "true"
+      username: ${parameters.github.username}
+      password: ${parameters.github.token}
 
   secret:
     # This chart field wants a BCRYPT HASH, not plaintext. The hash is pre-computed (stably) in the
