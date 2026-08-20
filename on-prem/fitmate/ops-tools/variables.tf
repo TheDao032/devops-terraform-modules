@@ -217,3 +217,20 @@ variable "token" {
   type        = string
   sensitive   = true
 }
+
+variable "prometheus_conf" {
+  # intentionally any: freeform kube-prometheus-stack values (helm/prometheus/grafana/alertmanager/
+  # routing blocks), sliced by try() in addons.tf and handed to shared/helm as opaque parameters.
+  #
+  # IN-13. Enabled only when the env supplies prometheus_conf — same two-pass model as argocd_conf,
+  # because grafana.auth.password comes from vault-secrets, which depends on THIS stack's Vault+ESO.
+  #
+  # ⚠️ RESOURCE LIMITS ARE NOT OPTIONAL on this lab: 3 schedulable agents at 2 vCPU / 2962Mi each,
+  # ~51% already used, with 5 more services still to onboard. The chart defaults are sized for
+  # production clusters and would evict neighbours. Defaults in values.yml.tftpl are tuned for a
+  # few thousand active series (≈1–1.8Gi for the whole stack); override per env only with measured
+  # numbers, never by copying upstream examples.
+  description = "Configuration for kube-prometheus-stack (helm + prometheus + grafana + alertmanager + routing blocks)."
+  type        = any
+  default     = {}
+}
