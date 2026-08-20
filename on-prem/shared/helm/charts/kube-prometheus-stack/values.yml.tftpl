@@ -1,0 +1,135 @@
+### kube-prometheus-stack — Prometheus + Grafana + Alertmanager + kube-state-metrics + node-exporter.
+#
+# ⚠️ FLAT STRING KEYS ONLY. The shared/helm module declares `variable "parameters"` as `map(any)`,
+# and map(any) is NOT "anything" — Terraform unifies every element to ONE type. Nested objects of
+# differing shapes (prometheus{strings + resources{}}, grafana{auth{},ingress{},resources{}},
+# alertmanager{resources{}}) cannot unify and fail with:
+#   "all map elements must have the same type"
+# Every other chart here passes flat map(string) sub-maps for exactly this reason (see redis: master
+# = {size="1Gi"}, auth = {password="..."}). Keep every value below a STRING; do not reintroduce
+# nested blocks, and do not add a top-level scalar next to these maps (that breaks unification too).
+#
+# RESOURCE LIMITS ARE MANDATORY HERE, not hygiene. The FitMate lab schedules onto 3 agents with
+# 2 vCPU / 2962Mi each (both servers are control-plane tainted), ~51% already used. An unbounded
+# Prometheus on a 2.9Gi node evicts whatever else lands there. Measured tuned footprint ≈ 1–1.8Gi.
+#
+# Sizing rationale: this scrapes ~11 services plus kube components — a few thousand active series.
+# That is small; the chart's own defaults are sized for production clusters and are 2–3x what is
+# needed here.
+
+### ── Prometheus ────────────────────────────────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    externalUrl: //${try(parameters.prometheus.ingress_prefix, "/")}
+
+    # ⚠️ THE SETTING THAT DECIDES WHETHER ANYTHING IS SCRAPED AT ALL.
+    # Default `true` makes Prometheus select ONLY ServiceMonitors carrying this Helm release's
+    # labels. Every FitMate service chart renders a plain ServiceMonitor with no such label, so
+    # with the default they are silently ignored: the CRD is accepted, the object exists, ArgoCD
+    # is green, and Prometheus scrapes none of them. `false` selects ALL ServiceMonitors.
+    # Same failure shape as SecretSynced-with-no-keys — verify targets are UP, never that the
+    # ServiceMonitor object exists.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    # Watch every namespace (services live in fitmate-<svc>-<env>, not in the monitoring namespace).
+    serviceMonitorNamespaceSelector: {}
+    ruleNamespaceSelector: {}
+
+    # Dev-lab retention. Short on purpose — a debugging aid, not a compliance store.
+    # retentionSize is the hard stop that actually protects the node as series count grows.
+    retention: ${try(parameters.prometheus.retention, "7d")}
+    retentionSize: ${try(parameters.prometheus.retention_size, "4GB")}
+
+    resources:
+      requests:
+        cpu: ${try(parameters.prometheus.cpu_request, "100m")}
+        memory: ${try(parameters.prometheus.memory_request, "512Mi")}
+      limits:
+        cpu: ${try(parameters.prometheus.cpu_limit, "1000m")}
+        memory: ${try(parameters.prometheus.memory_limit, "1Gi")}
+
+    # Single replica: dev lab. HA Prometheus doubles the memory bill for no benefit here.
+    replicas: 1
+
+### ── Grafana ───────────────────────────────────────────────────────────────────────────────────
+grafana:
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s:%(http_port)s${try(parameters.grafana.ingress_prefix, "/")}"
+
+  # Admin password from Vault (platform/grafana/creds) — NEVER the chart default `prom-operator`.
+  # Grafana is exposed via HTTPRoute, so a default password is a cluster-wide credential sitting on
+  # a routable hostname.
+  adminPassword: ${parameters.grafana.password}
+
+  resources:
+    requests:
+      cpu: ${try(parameters.grafana.cpu_request, "50m")}
+      memory: ${try(parameters.grafana.memory_request, "128Mi")}
+    limits:
+      cpu: ${try(parameters.grafana.cpu_limit, "300m")}
+      memory: ${try(parameters.grafana.memory_limit, "256Mi")}
+
+%{ if try(parameters.grafana.loki_url, "") != "" ~}
+  # Loki datasource — only rendered when the env actually supplies grafana.loki_url. FitMate has no
+  # Loki deployed; emitting this unconditionally would point Grafana at nothing.
+  # NOTE: nested UNDER grafana (not a top-level `loki_url`) so `parameters` stays a uniform
+  # map-of-maps — a top-level scalar would break map(any) unification.
+  additionalDataSources:
+    - name: Loki
+      access: proxy
+      isDefault: false
+      jsonData:
+        httpHeaderName1: X-Scope-OrgID
+      secureJsonData:
+        httpHeaderValue1: 1
+      orgId: 1
+      type: loki
+      url: http://${parameters.grafana.loki_url}:3100
+%{ endif ~}
+
+### ── Alertmanager ──────────────────────────────────────────────────────────────────────────────
+# Rules evaluate from day one; DELIVERY (Telegram/Slack/etc.) is wired LAST, deliberately. An
+# unrouted alert still fires and still shows in the UI, which is what proves the rule works before
+# a notification channel is chosen.
+alertmanager:
+  alertmanagerSpec:
+    replicas: 1
+    resources:
+      requests:
+        cpu: ${try(parameters.alertmanager.cpu_request, "20m")}
+        memory: ${try(parameters.alertmanager.memory_request, "64Mi")}
+      limits:
+        cpu: ${try(parameters.alertmanager.cpu_limit, "150m")}
+        memory: ${try(parameters.alertmanager.memory_limit, "128Mi")}
+
+### ── Exporters + operator ──────────────────────────────────────────────────────────────────────
+kube-state-metrics:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { cpu: 150m, memory: 128Mi }
+
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 10m, memory: 24Mi }
+    limits: { cpu: 100m, memory: 48Mi }
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+
+### ── Components deliberately disabled on this lab ──────────────────────────────────────────────
+# k3s runs these inside the server process and does not expose the standard scrape endpoints, so
+# the default ServiceMonitors would sit permanently DOWN and generate noise indistinguishable from
+# a real outage. Turned off so that a red target means something.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false

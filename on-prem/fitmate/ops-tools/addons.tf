@@ -386,7 +386,7 @@ module "prometheus" {
   source                 = "../../shared/helm"
   enabled                = local.prometheus_enabled
   environment            = var.environment
-  name                   = try(local.prometheus_helm.release_name, "prometheus")
+  name                   = try(local.prometheus_helm.release_name, "kube-prometheus-stack")
   namespace              = try(local.prometheus_helm.namespace, "monitoring")
   repository             = try(local.prometheus_helm.repository, "")
   chart_version          = try(local.prometheus_helm.chart_version, "")
