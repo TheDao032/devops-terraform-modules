@@ -73,6 +73,22 @@ locals {
   argocd_secret  = try(var.argocd_conf.secret, {})
   argocd_routing = try(var.argocd_conf.routing, {})
 
+  # kube-prometheus-stack (IN-13). Same two-pass gate as argocd_conf and for the same reason:
+  # grafana.auth.password is read from vault-secrets (platform/grafana/creds), and vault-secrets
+  # depends on THIS stack's Vault + ESO operator — so it cannot resolve on the first pass.
+  #
+  # Chosen over VictoriaMetrics after measuring: the lab carries a few thousand active series, far
+  # below the scale where VM's efficiency wins, and kube-prometheus-stack is the stack already used
+  # by the other tenants and assumed by every off-the-shelf Grafana dashboard. The original memory
+  # objection turned out to be about the ABSENT resource limits in the values template, not about
+  # Prometheus — those limits now exist and are the important part of this change.
+  prometheus_enabled      = length(var.prometheus_conf) > 0 ? local.enabled : local.disabled
+  prometheus_helm         = try(var.prometheus_conf.helm, {})
+  prometheus_prom         = try(var.prometheus_conf.prometheus, {})
+  prometheus_grafana      = try(var.prometheus_conf.grafana, {})
+  prometheus_alertmanager = try(var.prometheus_conf.alertmanager, {})
+  prometheus_routing      = try(var.prometheus_conf.routing, {})
+
   # Keycloak (operator-based). Enabled only when the env supplies keycloak_conf. try()-guarded so
   # an empty conf resolves to safe defaults while disabled.
   keycloak_enabled = length(var.keycloak_conf) > 0 ? local.enabled : local.disabled
@@ -347,3 +363,68 @@ module "redis" {
 #     routing = local.argocd_routing
 #   }
 # }
+
+# ── Observability (IN-13) ───────────────────────────────────────────────────────────────────────
+# kube-prometheus-stack: Prometheus + Grafana + Alertmanager + kube-state-metrics + node-exporter.
+#
+# WHY THIS EXISTS: dev had NO observability at all. Every FitMate service already exposed Prometheus
+# metrics on its metrics port and every gitops overlay carried
+#   serviceMonitor: enabled: false   # TEMP: no Prometheus Operator on-cluster yet
+# so the instrumentation was complete and nothing scraped it. Consequence: every incident this month
+# was diagnosed by hand-reading pod logs, and SCRUM-234 (Kafka consumption dead platform-wide) sat
+# invisible for weeks when a consumer-lag metric would have shown it in a day.
+#
+# Flipping a service's `serviceMonitor: enabled: true` in fitmate-gitops is all that is then needed —
+# values.yml.tftpl sets serviceMonitorSelectorNilUsesHelmValues=false so ServiceMonitors are selected
+# regardless of Helm release labels, and serviceMonitorNamespaceSelector={} so the per-app
+# fitmate-<svc>-<env> namespaces are watched.
+#
+# VERIFY BY TARGETS, NOT BY OBJECTS: a ServiceMonitor that exists but is not selected leaves ArgoCD
+# green and Prometheus scraping nothing — the same shape as SecretSynced-with-no-keys (SCRUM-227)
+# and Synced-against-a-stale-revision. Check Status > Targets shows UP.
+module "prometheus" {
+  source                 = "../../shared/helm"
+  enabled                = local.prometheus_enabled
+  environment            = var.environment
+  name                   = try(local.prometheus_helm.release_name, "prometheus")
+  namespace              = try(local.prometheus_helm.namespace, "monitoring")
+  repository             = try(local.prometheus_helm.repository, "")
+  chart_version          = try(local.prometheus_helm.chart_version, "")
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    prometheus   = local.prometheus_prom
+    grafana      = local.prometheus_grafana
+    alertmanager = local.prometheus_alertmanager
+  }
+}
+
+# Grafana UI exposure — Gateway API HTTPRoute on the shared traefik-gateway `web` listener, same
+# pattern as argocd-routing. Backend is the chart's grafana Service on :80 (plain HTTP), so no
+# BackendTLSPolicy is needed — which also sidesteps the Traefik GW API hostname-verification bug
+# that blocks re-encrypting to HTTPS backends.
+#
+# The admin password MUST come from Vault (platform/grafana/creds) and never the chart default
+# `prom-operator` — this is a routable hostname, so a default credential is a cluster-wide hole.
+module "grafana-routing" {
+  source                 = "../../shared/routing"
+  enabled                = local.prometheus_enabled
+  environment            = var.environment
+  namespace              = try(local.prometheus_helm.namespace, "monitoring")
+  route_type             = var.route_type
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    routing = local.prometheus_routing
+  }
+
+  depends_on = [module.prometheus]
+}
