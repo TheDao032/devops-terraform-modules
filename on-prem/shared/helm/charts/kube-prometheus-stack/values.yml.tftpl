@@ -64,13 +64,37 @@ grafana:
   # a routable hostname.
   adminPassword: ${parameters.grafana.password}
 
+  # ⚠️ CPU LIMIT MUST BE GENEROUS — a tight one here does NOT protect the node, it just throttles
+  # Grafana into a crash loop. First attempt used 300m and produced 5 restarts:
+  #   grafana CPU sat at exactly 300m (pegged at the ceiling = CFS throttling)
+  #   Liveness probe failed: dial tcp 10.42.x.x:3000: connect: connection refused
+  #   Container grafana failed liveness probe, will be restarted
+  #   lastState: reason=Error exit=1        <- NOT OOMKilled(137); memory was never the issue
+  # Grafana 13.x registers ~10 `*.grafana.app` API groups at boot and is genuinely CPU-hungry for
+  # the first ~2 minutes, then idles near 0. Throttled, it never opened :3000 before liveness gave up.
+  #
+  # Only REQUESTS are reserved by the scheduler; limits cost no capacity. So a high CPU limit with a
+  # low request is free headroom for a bursty startup. Tight limits are a memory discipline, not a
+  # CPU one — that distinction is what the first attempt got wrong.
   resources:
     requests:
-      cpu: ${try(parameters.grafana.cpu_request, "50m")}
-      memory: ${try(parameters.grafana.memory_request, "128Mi")}
+      cpu: ${try(parameters.grafana.cpu_request, "100m")}
+      memory: ${try(parameters.grafana.memory_request, "192Mi")}
     limits:
-      cpu: ${try(parameters.grafana.cpu_limit, "300m")}
-      memory: ${try(parameters.grafana.memory_limit, "256Mi")}
+      cpu: ${try(parameters.grafana.cpu_limit, "1000m")}
+      memory: ${try(parameters.grafana.memory_limit, "384Mi")}
+
+  # Liveness must not police STARTUP. Without a startupProbe the chart's livenessProbe begins after
+  # initialDelaySeconds=60 and kills a container that is still booting — which is exactly what
+  # happened. A startupProbe suspends liveness until it succeeds, giving boot a 300s budget
+  # (30 x 10s) while keeping liveness tight afterwards for a genuinely wedged process.
+  # Verified the subchart honours this key by rendering chart 88.5.2 with it set.
+  startupProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    periodSeconds: 10
+    failureThreshold: 30
 
 %{ if try(parameters.grafana.loki_url, "") != "" ~}
   # Loki datasource — only rendered when the env actually supplies grafana.loki_url. FitMate has no
