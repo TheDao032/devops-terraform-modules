@@ -18,3 +18,27 @@ output "client_secrets" {
   value       = { for k, c in keycloak_openid_client.main : k => c.client_secret }
   sensitive   = true
 }
+
+# ── Social-login IdPs (IN-14) ────────────────────────────────────────────────────────────────────
+# Makes the "empty client_secret => skipped" behaviour INSPECTABLE. Without these, a provider whose
+# secret was never exported simply doesn't appear on the login page and nothing anywhere says why —
+# the silent-no-op failure mode this codebase keeps running into.
+output "identity_providers" {
+  description = "Aliases of social-login IdPs actually configured on the realm."
+  value       = sort(concat(keys(keycloak_oidc_google_identity_provider.main), keys(keycloak_oidc_facebook_identity_provider.main)))
+}
+
+output "identity_providers_skipped" {
+  description = "Aliases declared but SKIPPED because client_secret was empty (export it in .envrc.local). Not an error — but if a provider is missing from the login page, look here first."
+  value       = sort(local.identity_providers_skipped)
+}
+
+# The broker callback each provider must have registered in ITS OWN console, or login fails right
+# after consent. Terraform cannot register these — surfaced so the value can be copy-pasted.
+output "identity_provider_redirect_uris" {
+  description = "Broker redirect URIs to register at Google / Facebook."
+  value = {
+    for a in sort(concat(keys(keycloak_oidc_google_identity_provider.main), keys(keycloak_oidc_facebook_identity_provider.main))) :
+    a => "${var.keycloak_url}/realms/${keycloak_realm.main.realm}/broker/${a}/endpoint"
+  }
+}
