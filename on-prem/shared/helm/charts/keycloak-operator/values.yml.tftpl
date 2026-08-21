@@ -38,8 +38,40 @@ spec:
     passwordSecret:
       name: keycloak-db
       key: password
+  # ── Frontend hostname — decides the `iss` claim on every token this server issues (IN-15) ──────
+  #
+  # PINNED (hostname_dynamic = false, the DEFAULT): Keycloak uses this exact host for all frontend
+  # URLs, so every realm stamps `iss = <scheme>://<hostname>/realms/<realm>` regardless of how the
+  # request arrived. One Keycloak serving three envs therefore issues ONE issuer for all of them —
+  # which is why the prod overlays' expected issuer (https://auth.fitmate.me/realms/fitmate) does
+  # not match reality, as recorded in fitmate-gitops apps/trainee-service/prod/values.yaml:55-58.
+  #
+  # DYNAMIC (hostname_dynamic = true): omit `hostname` and set `strict: false`. Per the CRD,
+  # `strict` "disables dynamically resolving the hostname from request headers" — so FALSE turns
+  # dynamic resolution ON. Keycloak then derives the frontend URL (and `iss`) from the incoming
+  # request, which with `proxy.headers: xforwarded` below means X-Forwarded-Host. One server then
+  # serves many hosts, each stamping its own correct issuer:
+  #     auth.dev.fitmate.me  -> iss https://auth.dev.fitmate.me/realms/fitmate-dev
+  #     auth.fitmate.me      -> iss https://auth.fitmate.me/realms/fitmate
+  #     keycloak.k3s.fitmate -> iss http://keycloak.k3s.fitmate/realms/<realm>   (unchanged)
+  #
+  # ⚠️ BACKWARDS COMPATIBLE: switching to dynamic does NOT change `iss` for requests that keep
+  # arriving on the current host — the derived value is identical. It only ADDS the ability for
+  # other hosts to issue their own. So this can be enabled BEFORE any issuer cutover, and verified
+  # independently, rather than as one big-bang change.
+  #
+  # ⚠️ SECURITY: dynamic resolution trusts the proxy. Keycloak will believe whatever Host /
+  # X-Forwarded-Host it is handed, so a token's `iss` becomes attacker-influenced if arbitrary
+  # hosts can reach it (host-header injection). This is only safe because Traefik routes by
+  # Gateway API HTTPRoute `hostnames` — an unlisted Host does not route at all. Adding a hostname
+  # to that route is therefore a security decision, not just a routing one. Do NOT enable dynamic
+  # resolution behind a proxy that forwards unmatched hosts.
   hostname:
+%{ if try(parameters.keycloak.hostname_dynamic, false) ~}
+    strict: false
+%{ else ~}
     hostname: ${parameters.keycloak.hostname}
+%{ endif ~}
   # Gateway (Traefik) terminates TLS and forwards HTTP → Keycloak serves plain HTTP and trusts the
   # X-Forwarded-* headers. The operator's own Ingress is disabled; we route via Gateway API HTTPRoute.
   http:
