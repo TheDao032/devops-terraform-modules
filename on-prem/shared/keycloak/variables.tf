@@ -63,6 +63,50 @@ variable "realm" {
       email_verified = optional(bool, false)
       realm_roles    = optional(list(string), []) # realm-role names to assign (must be in realm.roles)
     })), [])
+
+    # ── Social login (IN-14) ────────────────────────────────────────────────────────────────────
+    # Google/Facebook as realm IDENTITY PROVIDERS. Keycloak performs the OAuth code exchange with
+    # the provider; the resulting login issues a NORMAL Keycloak JWT, so services need no change:
+    #     browser -> Keycloak -> Google -> Keycloak -> app receives a Keycloak JWT
+    #
+    # ⚠️ The provider's client_secret is used BY KEYCLOAK and must NEVER be delivered to an
+    # application (no ESO, no env var, and never as a SUPERTOKENS_* key — SuperTokens is retired;
+    # see fitmate-gitops apps/trainee-service/prod/values.yaml:63). Handing it to a service gives a
+    # live credential to a process with no code path that reads it.
+    #
+    # `client_id` is NOT secret — commit it in env.hcl so the config is self-documenting. Only
+    # `client_secret` comes from .envrc.local via get_env().
+    #
+    # An entry whose client_secret is EMPTY is SKIPPED, not created (see locals.tf). A Keycloak IdP
+    # with a blank secret still renders a button on the login page that fails at the code exchange —
+    # skipping is the safe default and matches `get_env("GOOGLE_CLIENTSECRET", "")`. Which entries
+    # were configured vs skipped is exposed in outputs so the skip is never silent.
+    identity_providers = optional(list(object({
+      alias         = string # "google" | "facebook" — selects the resource type
+      client_id     = string
+      client_secret = string
+      enabled       = optional(bool, true)
+      display_name  = optional(string)
+      gui_order     = optional(string)
+
+      # ⚠️ SECURITY — do not inherit these silently.
+      #
+      # trust_email = true means a social login whose email matches an existing account is trusted
+      # WITHOUT verification. Combined with the default first-broker-login flow that auto-links by
+      # email, anyone who can create a provider account bearing a victim's address inherits the
+      # FITMate account. Keep false unless there is a written decision (ADR) saying otherwise.
+      trust_email = optional(bool, false)
+      # link_only = true prevents NEW users being created via this IdP — existing accounts may link
+      # it, nobody can register with it. Useful to enable social login for staff only.
+      link_only = optional(bool, false)
+      # IMPORT (copy profile once, never update) | FORCE (re-sync on every login) | LEGACY.
+      sync_mode = optional(string, "IMPORT")
+      # Override the first-broker-login flow to control the account-linking behaviour explicitly
+      # rather than relying on the realm default.
+      first_broker_login_flow_alias = optional(string)
+      hide_on_login_page            = optional(bool, false)
+      default_scopes                = optional(string) # google: "openid profile email"
+    })), [])
   })
 
   validation {
@@ -79,6 +123,32 @@ variable "realm" {
       c.service_accounts_enabled if length(c.service_account_roles) > 0
     ])
     error_message = "A client with service_account_roles must also set service_accounts_enabled = true."
+  }
+
+  # Only google/facebook have first-class resources in identity-providers.tf. A typo'd alias would
+  # otherwise be silently dropped by the for_each filters and produce NO IdP with no error at all —
+  # the exact "green apply that did nothing" failure this codebase keeps hitting.
+  validation {
+    condition = alltrue([
+      for i in var.realm.identity_providers : contains(["google", "facebook"], i.alias)
+    ])
+    error_message = "realm.identity_providers[].alias must be one of: google, facebook (add a resource in identity-providers.tf to support more)."
+  }
+
+  validation {
+    condition = alltrue([
+      for i in var.realm.identity_providers : contains(["IMPORT", "FORCE", "LEGACY"], i.sync_mode)
+    ])
+    error_message = "realm.identity_providers[].sync_mode must be one of: IMPORT, FORCE, LEGACY."
+  }
+
+  # One resource per alias — two entries with the same alias would collide on the for_each key and
+  # fail with an opaque duplicate-key error deep in the plan.
+  validation {
+    condition = length(var.realm.identity_providers) == length(distinct([
+      for i in var.realm.identity_providers : i.alias
+    ]))
+    error_message = "realm.identity_providers[].alias must be unique."
   }
 }
 

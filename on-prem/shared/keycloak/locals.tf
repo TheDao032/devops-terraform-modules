@@ -22,4 +22,16 @@ locals {
       for r in c.service_account_roles : "${c.client_id}:${r}" => { client_id = c.client_id, role = r }
     }
   ]...) : {}
+
+  # ── Social-login IdPs (IN-14) ─────────────────────────────────────────────────────────────────
+  # An entry with an EMPTY client_secret is deliberately NOT created. The secret comes from
+  # `get_env("GOOGLE_CLIENTSECRET", "")`, so an unset variable yields "" — and a Keycloak IdP with a
+  # blank secret still renders a login button that fails at the code exchange. Skipping is the safe
+  # reading of "not configured"; it also lets `terragrunt plan` work for anyone (or any CI job)
+  # without the secrets exported.
+  #
+  # The skip is NEVER silent: outputs.tf publishes both the configured and skipped aliases, so
+  # "why is Google missing from the login page?" is answerable from `terragrunt output` alone.
+  identity_providers         = { for i in var.realm.identity_providers : i.alias => i if trimspace(i.client_secret) != "" }
+  identity_providers_skipped = [for i in var.realm.identity_providers : i.alias if trimspace(i.client_secret) == ""]
 }
