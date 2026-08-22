@@ -10,6 +10,18 @@ variable "keycloak_url" {
   type        = string
 }
 
+# PUBLIC, browser-facing base URL — the one an OAuth provider must redirect back to.
+# Distinct from keycloak_url, which is the ADMIN/in-cluster address the Terraform provider talks to
+# (http://keycloak.k3s.fitmate). Rendering broker callbacks from keycloak_url produced URLs that
+# Google and Facebook reject: they require https, and that host is private plain HTTP. Anyone
+# pasting the old output into a provider console got a redirect_uri that could never match.
+# Defaults to keycloak_url so envs without a public host keep the previous behaviour.
+variable "public_base_url" {
+  description = "Public browser-facing base URL for broker callbacks, e.g. https://auth-dev.fitmate.me. Defaults to keycloak_url."
+  type        = string
+  default     = null
+}
+
 variable "realm" {
   description = "Full realm definition: name, roles, OIDC clients (+ audiences), and seed users."
   type = object({

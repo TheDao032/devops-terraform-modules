@@ -36,9 +36,9 @@ output "identity_providers_skipped" {
 # The broker callback each provider must have registered in ITS OWN console, or login fails right
 # after consent. Terraform cannot register these — surfaced so the value can be copy-pasted.
 output "identity_provider_redirect_uris" {
-  description = "Broker redirect URIs to register at Google / Facebook."
+  description = "Broker redirect URIs to register at Google / Facebook. Rendered from public_base_url (the browser-facing host), NOT the in-cluster admin URL — providers require https and reject the private host."
   value = {
     for a in sort(concat(keys(keycloak_oidc_google_identity_provider.main), keys(keycloak_oidc_facebook_identity_provider.main))) :
-    a => "${var.keycloak_url}/realms/${keycloak_realm.main.realm}/broker/${a}/endpoint"
+    a => "${coalesce(var.public_base_url, var.keycloak_url)}/realms/${keycloak_realm.main.realm}/broker/${a}/endpoint"
   }
 }
