@@ -65,6 +65,33 @@ ports:
     exposedPort: 80
     expose:
       default: true
+
+    # ── Trust X-Forwarded-* from in-cluster callers (IN-15) ───────────────────
+    # Traefik only honours incoming X-Forwarded-* headers from trustedIPs. With this
+    # unset (the default) it OVERWRITES them with the scheme/host of the connection it
+    # actually received — which for tunnel traffic is plain http on :8000.
+    #
+    # That silently broke the per-env Keycloak issuer. The chain is:
+    #   browser --https--> Cloudflare --https--> cloudflared --http--> Traefik --> Keycloak
+    #                                              ^ sets XFP: https      ^ overwrote it to http
+    # Keycloak (hostname strict=false + proxy.headers=xforwarded) derives `iss` from
+    # those headers, so the discovery document advertised
+    #   http://auth-dev.fitmate.me/realms/fitmate-dev
+    # instead of https. Everything looked healthy — TLS fine, tunnel up, correct host —
+    # only the scheme was wrong, and that alone breaks OAuth: Google and Facebook reject
+    # a non-https redirect_uri, and any service validating an https issuer rejects the token.
+    #
+    # Trusting the POD CIDR (not 0.0.0.0/0) is what makes this safe: only in-cluster
+    # sources are believed, and external traffic always arrives via cloudflared, which is
+    # a pod. Note the residual risk — a hostile pod could send Host: auth-dev.fitmate.me
+    # with a forged X-Forwarded-Host and Keycloak would stamp that as `iss`. Tightening to
+    # the cloudflared pod IPs specifically is the stricter option, but those are dynamic.
+    # The HTTPRoute hostname allow-list still bounds which Hosts route at all.
+    forwardedHeaders:
+      trustedIPs:
+%{ for cidr in try(parameters.forwarded_trusted_ips, ["10.42.0.0/16"]) ~}
+        - ${cidr}
+%{ endfor ~}
   websecure:
     port: 8443
     exposedPort: 443
