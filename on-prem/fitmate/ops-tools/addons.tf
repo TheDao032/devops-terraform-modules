@@ -207,6 +207,22 @@ module "keycloak" {
       hostname  = try(local.keycloak_kc.hostname, "keycloak.k3s.fitmate") # gitleaks:allow
       instances = try(local.keycloak_kc.instances, 1)
       image     = try(local.keycloak_kc.image, "")
+
+      # ⚠️ THIS BLOCK IS AN ALLOW-LIST, NOT A PASSTHROUGH. Every key the values template reads must
+      # be named here explicitly. Anything an env sets that is missing from this list is silently
+      # DROPPED, and the template's own `try(..., default)` then hides the drop completely.
+      #
+      # That is exactly how IN-15 phase 2 shipped broken: `hostname_dynamic = true` was set in
+      # shared/ops-tools and consumed by the values template, but not listed here. Terragrunt
+      # passed it, this map dropped it, the template fell back to false, the CR rendered with the
+      # PINNED hostname, and `plan` then reported "No changes" because state already matched.
+      # Every layer behaved correctly and the composite silently did nothing — same family as
+      # SCRUM-230 (a missing key falling back to a baked default).
+      #
+      # ADDING A TEMPLATE PARAMETER: add it here in the SAME commit, and verify by inspecting the
+      # rendered object (`terragrunt state show ... | grep <field>`) or the live resource — never
+      # by a green plan, which is precisely what "No changes" looked like here.
+      hostname_dynamic = try(local.keycloak_kc.hostname_dynamic, false)
     }
     db = {
       host     = try(local.keycloak_db.host, "")
