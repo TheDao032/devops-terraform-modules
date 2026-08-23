@@ -1,0 +1,66 @@
+---
+# ACME DNS-01 issuer for public hostnames served by Traefik (IN-16 follow-up).
+#
+# WHY DNS-01 AND NOT HTTP-01: nothing in this lab is publicly reachable on :443. Inbound traffic
+# arrives only through a Cloudflare Tunnel, and the hostnames are additionally gated by Cloudflare
+# Access. An HTTP-01 challenge would need Let's Encrypt to fetch a token over the public internet,
+# which cannot happen. DNS-01 only needs a TXT record in the zone, so it works regardless of
+# reachability — and regardless of the hostname being proxied by Cloudflare.
+#
+# WHY THE TOKEN IS A PARAMETER AND NOT PULLED FROM VAULT: cert-manager is part of init-resources
+# and deploys BEFORE Vault exists (see the env config comment: "deploys BEFORE vault so its
+# Certificate/Issuer manifests have the CRDs available"). An ESO-delivered secret would therefore
+# have an ordering problem it cannot win. Same pattern as keycloak-operator's admin-secret.
+#
+# ⚠️ CONSEQUENCE: the token lands in Terraform state. That is the existing trade-off for every
+# secret this project renders through a chart template, not a new one — but it is a real reason to
+# use a NARROWLY SCOPED token. This one needs exactly two permissions:
+#     Zone > Zone > Read      (find the zone)
+#     Zone > DNS  > Edit      (write and delete _acme-challenge TXT records)
+# scoped to the single zone. Do NOT reuse the tunnel/Terraform token: that one also carries
+# `Account > Access: Apps and Policies > Edit`, and Cloudflare Access is currently the only control
+# keeping the IN-20 header-forgery hole off the public internet. A compromised cert-manager pod
+# holding that token could delete the very policy protecting these hostnames.
+#
+# Rendered only when parameters.common.dns01.enabled is true, so merging this changes nothing
+# until an environment opts in.
+%{ if try(parameters.common.dns01.enabled, false) ~}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudflare-dns01-token
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/managed-by: terraform
+type: Opaque
+stringData:
+  api-token: ${parameters.common.dns01.api_token}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: ${try(parameters.common.dns01.issuer_name, "letsencrypt-dns01")}
+spec:
+  acme:
+    # ⚠️ START ON STAGING. Let's Encrypt production has rate limits that are easy to burn while
+    # iterating on a solver config, and a lockout blocks this work for a week. Staging issues an
+    # UNTRUSTED cert — good enough to prove the whole chain works, and the only thing it cannot
+    # prove is that a pod trusts the result. Switch to production only once staging issues cleanly.
+    server: ${try(parameters.common.dns01.acme_server, "https://acme-staging-v02.api.letsencrypt.org/directory")}
+    email: ${parameters.common.dns01.email}
+    privateKeySecretRef:
+      name: ${try(parameters.common.dns01.issuer_name, "letsencrypt-dns01")}-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-dns01-token
+              key: api-token
+%{ if try(length(parameters.common.dns01.zones), 0) > 0 ~}
+        selector:
+          dnsZones:
+%{ for z in parameters.common.dns01.zones ~}
+            - ${z}
+%{ endfor ~}
+%{ endif ~}
+%{ endif ~}
