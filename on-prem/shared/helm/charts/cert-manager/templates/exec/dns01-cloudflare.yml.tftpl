@@ -36,20 +36,21 @@ type: Opaque
 stringData:
   api-token: ${parameters.common.dns01.api_token}
 ---
+%{ for iss in try(parameters.common.dns01.issuers, []) ~}
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: ${try(parameters.common.dns01.issuer_name, "letsencrypt-dns01")}
+  name: ${iss.name}
 spec:
   acme:
-    # ⚠️ START ON STAGING. Let's Encrypt production has rate limits that are easy to burn while
-    # iterating on a solver config, and a lockout blocks this work for a week. Staging issues an
-    # UNTRUSTED cert — good enough to prove the whole chain works, and the only thing it cannot
-    # prove is that a pod trusts the result. Switch to production only once staging issues cleanly.
-    server: ${try(parameters.common.dns01.acme_server, "https://acme-staging-v02.api.letsencrypt.org/directory")}
+    server: ${iss.server}
     email: ${parameters.common.dns01.email}
+    # Each issuer gets its OWN ACME account key. Sharing one across the staging and production
+    # directories means a key registered against one endpoint gets re-registered against the other
+    # — it usually works, and when it does not the failure is an opaque ACME error at issuance
+    # time. Distinct keys make the two accounts genuinely independent.
     privateKeySecretRef:
-      name: ${try(parameters.common.dns01.issuer_name, "letsencrypt-dns01")}-account-key
+      name: ${iss.name}-account-key
     solvers:
       - dns01:
           cloudflare:
@@ -63,4 +64,6 @@ spec:
             - ${z}
 %{ endfor ~}
 %{ endif ~}
+---
+%{ endfor ~}
 %{ endif ~}
