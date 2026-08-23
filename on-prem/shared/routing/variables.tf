@@ -78,6 +78,21 @@ variable "parameters" {
   }
 
   validation {
+    # A route that PINS forwarded headers (IN-20) must serve exactly ONE hostname.
+    #
+    # request_headers renders a RequestHeaderModifier that SETs X-Forwarded-Host/Proto to a fixed
+    # value for every request matching the route. If the route listed two hostnames, both would be
+    # stamped with the same pinned value — so the second hostname would advertise the first one's
+    # identity, and any issuer derived from it would be wrong. Caught here rather than at runtime,
+    # where the symptom is a token that fails an issuer check for no visible reason.
+    condition = !can(var.parameters.routing.httproutes) ? true : alltrue([
+      for r in var.parameters.routing.httproutes :
+      try(length(r.request_headers), 0) == 0 || length(r.hostnames) == 1
+    ])
+    error_message = "parameters.routing.httproutes[*] that sets request_headers must list exactly one hostname (pinned headers cannot be correct for two hosts). Split it into one route per hostname."
+  }
+
+  validation {
     # When routing.gateways is present, every entry must carry a listeners list.
     condition = !can(var.parameters.routing.gateways) ? true : alltrue([
       for g in var.parameters.routing.gateways :

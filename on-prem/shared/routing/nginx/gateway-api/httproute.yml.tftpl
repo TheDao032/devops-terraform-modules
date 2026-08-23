@@ -7,6 +7,7 @@
 # Expected `route` object:
 #   name, namespace, gateway_name, gateway_namespace, section_name,
 #   hostnames (list), path_prefix, backend_name, backend_port
+#   request_headers (OPTIONAL map(string)) — headers to SET on every matching request
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -27,6 +28,27 @@ spec:
         - path:
             type: PathPrefix
             value: ${route.path_prefix}
+%{ if try(length(route.request_headers), 0) > 0 ~}
+      # RequestHeaderModifier — SET (not add) these on every request matching this route.
+      #
+      # This is a SECURITY control, not a convenience (IN-20). `set` overwrites whatever the client
+      # sent, so a forged X-Forwarded-Host/Proto is discarded before it reaches the backend. That
+      # matters because Traefik's forwardedHeaders.trustedIPs cannot be relied on here: k3s serves
+      # type=LoadBalancer through klipper (svclb) pods, which SNAT every external packet into the
+      # pod CIDR — so the "trust only in-cluster callers" rule actually trusts anyone who can reach
+      # the LB IP. Verified 2026-08-23 by forging an issuer from outside the cluster.
+      #
+      # Because a value is pinned per route, a route carrying request_headers should list exactly
+      # ONE hostname. Two hostnames sharing one pinned X-Forwarded-Host would make the second lie.
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+%{ for k, v in route.request_headers ~}
+              - name: ${k}
+                value: "${v}"
+%{ endfor ~}
+%{ endif ~}
       backendRefs:
         - kind: Service
           name: ${route.backend_name}
