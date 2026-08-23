@@ -191,3 +191,18 @@ variable "token" {
   type        = string
   sensitive   = true
 }
+
+variable "coredns_custom_conf" {
+  # intentionally any: freeform { rewrites = [{ from, to }] }
+  description = "Split-horizon DNS rewrites rendered into the k3s coredns-custom ConfigMap."
+  type        = any
+  default     = {}
+
+  validation {
+    condition = !can(var.coredns_custom_conf.rewrites) ? true : alltrue([
+      for r in var.coredns_custom_conf.rewrites :
+      length(trimspace(tostring(r.from))) > 0 && length(trimspace(tostring(r.to))) > 0
+    ])
+    error_message = "coredns_custom_conf.rewrites[*] must set a non-empty from and to."
+  }
+}

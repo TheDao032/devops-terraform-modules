@@ -9,8 +9,12 @@ locals {
   # coredns_common = var.coredns_conf.common
 
   cert_manager_enabled = length(var.cert_manager_conf) > 0 ? local.enabled : local.disabled
-  cert_manager_helm    = try(var.cert_manager_conf.helm, {})
-  cert_manager_common  = try(var.cert_manager_conf.common, {})
+
+  # Only render the split-horizon ConfigMap when rewrites are actually supplied. An empty ConfigMap
+  # would be harmless but misleading — it would look like the feature is switched on.
+  coredns_custom_enabled = length(try(var.coredns_custom_conf.rewrites, [])) > 0 ? local.enabled : local.disabled
+  cert_manager_helm      = try(var.cert_manager_conf.helm, {})
+  cert_manager_common    = try(var.cert_manager_conf.common, {})
 
   # Self-managed Traefik v3 (k3s-bundled v2.11 disabled via `--disable=traefik`). ONE
   # controller handles everything at once: Kubernetes Ingress (Vault), Traefik CRD/IngressRoute
@@ -141,6 +145,34 @@ module "cert-manager" {
 # server-side-applied, NOT Helm (the traefik-crds chart's 3.1 MB blows etcd's 1 MiB release
 # Secret cap). Must land BEFORE the traefik release, whose Gateway/GatewayClass resources
 # render against them. Traefik's OWN traefik.io CRDs come from the traefik chart's crds/ dir.
+# Split-horizon DNS so in-cluster callers reach the public auth hostnames via Traefik instead of
+# going out to Cloudflare and meeting the Access gate (IN-16 stage 2).
+#
+# MANIFEST MODE (helm_release_enabled = false): renders one ConfigMap, installs no Helm release.
+# Deliberately NOT the core-dns chart above — that one deploys a whole CoreDNS and is commented out
+# precisely because k3s owns CoreDNS. `coredns-custom` is k3s's own extension point, which k3s
+# leaves unmanaged, so there is no ownership fight.
+module "coredns-custom" {
+  source               = "../../shared/helm"
+  enabled              = local.coredns_custom_enabled
+  helm_release_enabled = false
+  environment          = var.environment
+  name                 = "coredns-custom"
+  namespace            = "kube-system"
+  # kube-system predates this module by the entire life of the cluster. Creating it here would put
+  # it under Terraform ownership, and a destroy would then try to remove it.
+  create_namespace       = false
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+  parameters = {
+    rewrites = try(var.coredns_custom_conf.rewrites, [])
+  }
+}
+
 module "gateway-api-crds" {
   source    = "../../shared/crds"
   enabled   = local.enabled

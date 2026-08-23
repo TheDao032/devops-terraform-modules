@@ -83,6 +83,22 @@ variable "values_type" {
 # existing charts are unaffected. Set them for operator/CR charts that aren't Helm charts (the
 # chart dir is still just values.yml.tftpl + templates/, e.g. keycloak-operator).
 
+variable "create_namespace" {
+  # ⚠️ Set FALSE when deploying into a namespace this module does not own — above all kube-system.
+  #
+  # The namespace resource is a plain kubectl_manifest with no adoption guard, so applying it for an
+  # EXISTING namespace silently puts that namespace under Terraform's ownership in state. A later
+  # `destroy` of this module would then try to DELETE it. For an app namespace that is merely
+  # untidy; for kube-system it would take the cluster down.
+  #
+  # Caught while adding the coredns-custom manifest (IN-16 stage 2), whose plan read
+  # "module.coredns-custom.kubectl_manifest.namespace[0] will be created" against a kube-system
+  # that has existed since the cluster was built.
+  description = "Whether this module should create its namespace. False when deploying into a pre-existing one."
+  type        = bool
+  default     = true
+}
+
 variable "helm_release_enabled" {
   description = "true = install a Helm chart (values.yml.tftpl = helm values). false = MANIFEST mode: NO helm_release; values.yml.tftpl is applied as raw kubectl manifest(s) — the 'main' resource (multi-doc split)."
   type        = bool

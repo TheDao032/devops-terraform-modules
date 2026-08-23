@@ -36,7 +36,9 @@ locals {
   # The target namespace must exist BEFORE the namespaced pre-helm manifests (tls) apply — OR before
   # any manifest-mode resource (helm's create_namespace never runs in manifest mode). Gate on tls
   # presence OR manifest mode so pure-Helm charts deploying into an existing ns are unaffected.
-  ns_created = (fileexists(local.tls_value_file) || local.manifest_mode) ? var.enabled : var.disabled
+  # var.create_namespace is the explicit opt-out for pre-existing namespaces (see variables.tf) —
+  # without it, manifest mode would adopt kube-system into state and a destroy would delete it.
+  ns_created = (var.create_namespace && (fileexists(local.tls_value_file) || local.manifest_mode)) ? var.enabled : var.disabled
 
   templates_path = "${path.module}/charts/${var.name}/templates/exec"
   templates      = fileset(local.templates_path, "*.yml.tftpl")

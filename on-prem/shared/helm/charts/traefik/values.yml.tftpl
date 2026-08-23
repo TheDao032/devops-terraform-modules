@@ -52,6 +52,28 @@ gateway:
       protocol: HTTP
       namespacePolicy:
         from: All
+%{ if try(length(parameters.public_host_certs), 0) > 0 ~}
+    # ── HTTPS listener (IN-16 stage 2) ────────────────────────────────────────
+    # Exists so IN-CLUSTER callers can reach the public auth hostname over real TLS instead of
+    # going out to Cloudflare and meeting the Access login page. Browser traffic is unaffected:
+    # it still terminates TLS at Cloudflare and arrives here over the `web` listener.
+    #
+    # The chart disables websecure by default precisely because certificateRefs must be supplied
+    # ("websecure listener is disabled by default because certificateRefs needs to be added").
+    # The Secrets are cert-manager Certificates issued into THIS namespace, so no ReferenceGrant
+    # is required — a cross-namespace certificateRef would have needed one.
+    websecure:
+      port: 8443
+      protocol: HTTPS
+      namespacePolicy:
+        from: All
+      certificateRefs:
+%{ for host in parameters.public_host_certs ~}
+        - name: ${replace(host.name, ".", "-")}-tls
+          kind: Secret
+          group: ""
+%{ endfor ~}
+%{ endif ~}
 
 # ── Service (edge) ───────────────────────────────────────────────────────────
 # LoadBalancer → Klipper (servicelb) assigns the node IPs, exactly like the bundled one.
