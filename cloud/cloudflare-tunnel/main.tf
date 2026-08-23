@@ -77,10 +77,25 @@ locals {
   # Hostnames already claimed by a NON-tunnel record. Skipping these prevents the 81053 "record already
   # exists" apply failure. Our OWN records point at *.cfargotunnel.com, so they are NEVER in this map —
   # meaning the module never excludes/destroys its own records on a re-apply (that would flap).
-  externally_claimed = {
+  # A SET of names, not a map keyed by name.
+  #
+  # This was `r.name => true`, which asserts every record name in the zone is unique. DNS does not
+  # work that way: a name may carry several records (an RRset) — multiple TXT for SPF/DKIM, several
+  # A records for round-robin, MX. Terraform then fails the whole plan with
+  #     Error: Duplicate object key ... Two different items produced the key "..."
+  # pointing at this comprehension, in a module that has nothing to do with whatever added the
+  # second record.
+  #
+  # It fired on 2026-08-24 when cert-manager's DNS-01 solver left two `_acme-challenge` TXT records
+  # per host (one from the staging issuance, one from production). But ANY legitimate RRset would
+  # have done it — the ACME records were simply the first to arrive.
+  #
+  # This value is only ever used as a membership test (see the `contains` below), so a set is both
+  # the correct type and immune to duplicates.
+  externally_claimed = toset([
     for r in data.cloudflare_dns_records.existing.result :
-    r.name => true if !endswith(try(r.content, ""), ".cfargotunnel.com")
-  }
+    r.name if !endswith(try(r.content, ""), ".cfargotunnel.com")
+  ])
 }
 
 # One proxied (orange-cloud) CNAME per hostname -> the tunnel. NO A record / public IP.
@@ -91,7 +106,7 @@ locals {
 resource "cloudflare_dns_record" "hostname" {
   for_each = {
     for r in var.routes : r.hostname => r
-    if !lookup(local.externally_claimed, r.hostname, false)
+    if !contains(local.externally_claimed, r.hostname)
   }
 
   zone_id = var.zone_id
