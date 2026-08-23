@@ -102,9 +102,17 @@ variable "manifest_override_namespace" {
 }
 
 variable "parameters" {
-  # intentionally any: freeform helm/template values piped straight into templatefile()/helm values
-  description = "Chart's parameters — freeform map rendered into the chart's values/manifest templates."
-  type        = map(any)
+  # ⚠️ `any`, NOT `map(any)`. The comment here has always said "freeform", but map(any) is not
+  # freeform: Terraform unifies every element to a single type, so the moment one caller mixes a
+  # string with a list or object it fails with
+  #     "all map elements must have the same type"
+  # pointing at the CALLER's block rather than at this declaration — which reads like the caller
+  # wrote something invalid. It did not; the type was lying about its own contract.
+  #
+  # Hit while adding traefik's public_host_certs (a list of objects) alongside dashboard_host (a
+  # string). Charts that pass a single nested key never triggered it, which is why it survived.
+  description = "Chart's parameters — freeform values rendered into the chart's values/manifest templates."
+  type        = any
   default     = {}
 }
 

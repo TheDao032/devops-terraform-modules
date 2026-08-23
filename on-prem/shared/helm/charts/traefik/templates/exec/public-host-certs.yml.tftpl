@@ -1,0 +1,35 @@
+---
+# Certificates for the PUBLIC auth hostnames, issued into the Traefik namespace (IN-16 follow-up).
+#
+# WHY TRAEFIK NEEDS A CERT FOR A HOSTNAME CLOUDFLARE ALREADY TERMINATES:
+# a browser reaching auth-dev.fitmate.me terminates TLS at Cloudflare, so Traefik has never needed
+# one. But the website's Auth.js BFF refreshes tokens SERVER-SIDE, from inside the cluster, using
+# the issuer URL — which is https://auth-dev.fitmate.me. Sending that pod to Cloudflare means it
+# meets the Access login page instead of a token. Sending it to Traefik instead (split-horizon DNS)
+# only works if Traefik can present a certificate for that name which the pod trusts; otherwise the
+# request fails with "unable to get local issuer certificate" and we have traded one failure for
+# another. Verified 2026-08-23 — Traefik's websecure entrypoint has TLS on, but only a self-signed
+# default cert.
+#
+# A publicly-trusted certificate is used deliberately rather than an internal CA: pods trust it out
+# of the box from the base image's CA bundle, so no application change, no CA injection, and no
+# insecureSkipVerify anywhere.
+#
+# Rendered only for hosts the caller passes, so this is inert until an environment opts in.
+%{ for host in try(parameters.public_host_certs, []) ~}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  # Secret and Certificate share a name derived from the hostname, so the mapping is obvious in
+  # `kubectl get certificate -n traefik` without cross-referencing anything.
+  name: ${replace(host.name, ".", "-")}-tls
+  namespace: ${namespace}
+spec:
+  secretName: ${replace(host.name, ".", "-")}-tls
+  issuerRef:
+    name: ${try(host.issuer, "letsencrypt-dns01")}
+    kind: ClusterIssuer
+  dnsNames:
+    - ${host.name}
+---
+%{ endfor ~}

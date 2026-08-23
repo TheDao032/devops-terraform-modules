@@ -166,13 +166,24 @@ module "traefik" {
   token                  = var.token
   tags                   = var.tags
 
-  # Dashboard IngressRoute host: override the chart's env-derived default (env here = "shared") so the
-  # dashboard is reachable at traefik.k3s.fitmate — matching the cluster suffix keycloak/vault/argocd use.
+  # ⚠️ THIS BLOCK IS AN ALLOW-LIST, NOT A PASSTHROUGH. A key the caller sets but that is absent
+  # here is silently dropped, and the template's try(..., default) then hides it — which is exactly
+  # how `hostname_dynamic` was lost for a whole release cycle. Add the key here when adding a param.
+  #
+  # dashboard_host: override the chart's env-derived default (env here = "shared") so the dashboard
+  # is reachable at traefik.k3s.fitmate — matching the suffix keycloak/vault/argocd use.
+  #
+  # public_host_certs: hostnames Traefik must be able to terminate TLS for ITSELF, rather than
+  # relying on Cloudflare to do it at the edge. Needed so in-cluster callers can reach the public
+  # auth hostname over https without meeting Cloudflare Access (IN-16 follow-up).
   parameters = {
-    dashboard_host = "traefik.k3s.fitmate"
+    dashboard_host    = "traefik.k3s.fitmate"
+    public_host_certs = try(var.traefik_conf.public_host_certs, [])
   }
 
-  depends_on = [module.gateway-api-crds]
+  # cert-manager, not just the CRDs: the Certificate resources this chart renders are cert-manager
+  # CRs, so the controller must exist before they are applied or they sit Pending forever.
+  depends_on = [module.gateway-api-crds, module.cert-manager]
 }
 
 module "vault" {
