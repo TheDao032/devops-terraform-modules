@@ -7,6 +7,7 @@
 # Expected `route` object:
 #   name, namespace, gateway_name, gateway_namespace, section_name,
 #   hostnames (list), path_prefix, backend_name, backend_port
+#   section_names (OPTIONAL list) — attach to several listeners; defaults to [section_name]
 #   request_headers (OPTIONAL map(string)) — headers to SET on every matching request
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -15,10 +16,15 @@ metadata:
   namespace: ${namespace}
 spec:
   parentRefs:
+%{ for sn in try(route.section_names, [route.section_name]) ~}
+    # One parentRef per listener. A route serving a hostname that in-cluster callers reach over TLS
+    # must attach to BOTH `web` (Cloudflare -> cloudflared -> Traefik, plain HTTP) and `websecure`
+    # (in-cluster, real TLS) — otherwise one of the two paths 404s while everything looks healthy.
     - kind: Gateway
       name: ${route.gateway_name}
       namespace: ${route.gateway_namespace}
-      sectionName: ${route.section_name}
+      sectionName: ${sn}
+%{ endfor ~}
   hostnames:
 %{ for h in route.hostnames ~}
     - "${h}"

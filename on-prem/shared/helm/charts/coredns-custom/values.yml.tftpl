@@ -1,0 +1,50 @@
+---
+# Split-horizon DNS for the public auth hostnames (IN-16 stage 2).
+#
+# ⚠️ THIS IS NOT A COREDNS DEPLOYMENT. Deploy this chart in MANIFEST MODE
+# (helm_release_enabled = false) — it renders exactly one ConfigMap and nothing else.
+#
+# Do NOT revive shared/helm/charts/core-dns for this. That chart deploys a whole CoreDNS and is
+# deliberately commented out in init-resources because k3s manages CoreDNS itself; enabling it
+# would fight k3s for ownership of the kube-system coredns/kube-dns resources. `coredns-custom` is
+# k3s's own documented extension point and is left free by k3s — the Corefile already ends with
+#     import /etc/coredns/custom/*.override
+#     import /etc/coredns/custom/*.server
+# and the Deployment already mounts this ConfigMap as an OPTIONAL volume. It simply does not exist
+# until something creates it, which is what this does.
+#
+# WHY: the website's Auth.js BFF refreshes tokens SERVER-SIDE using the issuer URL
+# (https://auth-<env>.fitmate.me). Resolved normally, that request leaves the cluster, reaches
+# Cloudflare, and meets the Access login page instead of a token — so the session dies at first
+# expiry while the initial login looks fine. Resolving the same name to Traefik keeps the request
+# inside the cluster. The issuer STRING is unchanged, so `iss` still matches what services expect.
+#
+# ⚠️ This is why stage 2 also gives Traefik a real certificate. DNS alone sends the pod to a
+# listener presenting TRAEFIK DEFAULT CERT, and the call dies with "unable to get local issuer
+# certificate" — a NEW failure wearing the old one's clothes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/managed-by: terraform
+data:
+  # `.override` is imported INSIDE the existing `.:53` server block, so it contributes plugins to
+  # the current server rather than declaring a new one. A `.server` file would take over a whole
+  # zone — far more than is wanted for two names.
+  auth-split-horizon.override: |
+%{ for r in try(parameters.rewrites, []) ~}
+    # ${r.from} -> ${r.to}
+    #
+    # Rewriting to the SERVICE NAME rather than a hardcoded ClusterIP means this survives Traefik's
+    # Service being recreated with a different IP.
+    #
+    # `answer auto` rewrites the response name back to the name the client asked for. Without it the
+    # answer carries the internal name, which some resolvers accept and others quietly reject —
+    # a difference that only shows up under a specific client library.
+    rewrite stop {
+      name exact ${r.from} ${r.to}
+      answer auto
+    }
+%{ endfor ~}
