@@ -32,6 +32,59 @@ variable "realm" {
     # Prod behind TLS → "external" (the Keycloak default).
     ssl_required = optional(string, "external")
 
+    # ── Login & registration policy ─────────────────────────────────────────────────────────────
+    # These control what the LOGIN PAGE actually offers. Keycloak renders its form from realm
+    # state, so a design that promises a field the realm has switched off ships a page that
+    # rejects its own users.
+    #
+    # ⚠️ EVERY FLAG HERE DEFAULTS TO `false` ON PURPOSE — including login_with_email_allowed,
+    # whose Keycloak *server* default is true. The provider writes a zero-value `false` for an
+    # unset optional bool, so every realm this module already manages is sitting at false today
+    # (verified against live fitmate-dev, 2026-08-24). Defaulting to the Keycloak default instead
+    # of the observed state would silently flip stg AND prod on the next apply — an unrequested
+    # behaviour change in prod, arriving as a side effect of a dev feature. Preserve reality;
+    # let each env opt in explicitly.
+
+    # Accept the email address in the identifier field. OFF renders the literal label "Username"
+    # and REJECTS every user who types their email; ON renders "Username or email".
+    # NOTE: this permits email as an *alternative* identifier. It does NOT make email the
+    # identity — that is registration_email_as_username below, a different decision.
+    login_with_email_allowed = optional(bool, false)
+
+    # Two accounts may share an email address. MUST stay false when login_with_email_allowed or
+    # registration_email_as_username is on (an email that maps to two users cannot identify one);
+    # Keycloak rejects the combination server-side — validated at plan time below instead.
+    duplicate_emails_allowed = optional(bool, false)
+
+    # Self-service sign-up: renders the "Register" link and the registration form.
+    # ⚠️ Pair with a plan for abuse: with registration ON and verify_email OFF, anyone may create
+    # an account claiming ANY email address, unverified.
+    registration_allowed = optional(bool, false)
+
+    # Make the email address BE the username: the registration form drops its username field and
+    # the login label becomes "Email". Changes the shape of the registration form, so it is a
+    # product/design decision, not a toggle — agree it with whoever owns the sign-up screen.
+    # Existing users keep the usernames they already have; this governs new registrations.
+    registration_email_as_username = optional(bool, false)
+
+    # 🔴 REQUIRES SMTP. Renders "Forgot password?"; Keycloak then EMAILS a reset link.
+    # This module configures no smtp_server block, so on a realm without SMTP the link leads to a
+    # form that can never deliver anything — a dead end that looks like a working feature.
+    # Configure SMTP on the realm FIRST, then enable this.
+    reset_password_allowed = optional(bool, false)
+
+    # 🔴 REQUIRES SMTP — same trap, but worse: with no mail server a new user is handed a
+    # VERIFY_EMAIL required action and an email that never arrives, locking them out of the
+    # account they just created. Never enable this before SMTP exists.
+    verify_email = optional(bool, false)
+
+    # Renders the "Remember me" checkbox and honours it with a longer-lived session.
+    remember_me = optional(bool, false)
+
+    # Let users change their own username in the account console. Keep false when
+    # registration_email_as_username is on, or the "email IS the identity" invariant is editable.
+    edit_username_allowed = optional(bool, false)
+
     roles = optional(list(string), [])
 
     clients = optional(list(object({
@@ -124,6 +177,22 @@ variable "realm" {
   validation {
     condition     = contains(["none", "external", "all"], var.realm.ssl_required)
     error_message = "realm.ssl_required must be one of: none, external, all."
+  }
+
+  # Email cannot identify a user if two users may share one. Keycloak rejects this pairing
+  # server-side with an opaque 400 mid-apply; failing at plan time says which two flags collided.
+  validation {
+    condition = !(var.realm.duplicate_emails_allowed && (
+      var.realm.login_with_email_allowed || var.realm.registration_email_as_username
+    ))
+    error_message = "realm.duplicate_emails_allowed cannot be true together with login_with_email_allowed or registration_email_as_username — an email that maps to two accounts cannot identify one."
+  }
+
+  # registration_email_as_username means "the email IS the username". Leaving username editable
+  # lets a user break that invariant from the account console after the fact.
+  validation {
+    condition     = !(var.realm.registration_email_as_username && var.realm.edit_username_allowed)
+    error_message = "realm.registration_email_as_username requires edit_username_allowed = false — otherwise a user can edit away the email-as-identity invariant."
   }
 
   # A client with service_account_roles but no service account has no user to grant them to:
