@@ -32,6 +32,17 @@ resource "keycloak_realm" "main" {
   reset_password_allowed = var.realm.reset_password_allowed
   verify_email           = var.realm.verify_email
 
+  # ── Login theme ───────────────────────────────────────────────────────────────────────────────
+  # Which theme renders this realm's login pages. null → the attribute is left at "" → Keycloak
+  # serves its default (keycloak.v2 on 26.7), which is what every realm here does today.
+  #
+  # Keycloak does NOT verify the theme exists. A name the running image does not carry applies
+  # cleanly and then falls back at render time, so a green apply proves nothing here — the check
+  # that matters is the RESOURCE PATH in the served HTML changing from
+  #   /resources/<hash>/login/keycloak.v2   to   /resources/<hash>/login/fitmate
+  # See variables.tf for why this is login-only and why the image must land first.
+  login_theme = var.realm.login_theme
+
   # ── Internationalization ──────────────────────────────────────────────────────────────────────
   # DYNAMIC on purpose. An always-present block would force every caller to supply locales, and —
   # worse — writing the block with zero-value contents is NOT the same as omitting it: it flips the
