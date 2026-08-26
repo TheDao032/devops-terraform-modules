@@ -117,6 +117,32 @@ variable "realm" {
       default_locale = string
     }))
 
+    # ── Login theme ──────────────────────────────────────────────────────────────────────
+    # Name of the theme Keycloak renders the LOGIN pages with. This is the `name` field inside the
+    # theme JAR's META-INF/keycloak-themes.json, NOT the JAR filename. For the FitMate theme that
+    # string is `fitmate` (read out of the built artifact 2026-08-26, which declares exactly one
+    # theme named `fitmate` providing exactly one type, `login`).
+    #
+    # NULL (the default) leaves the attribute unset — the state every realm this module manages is
+    # in today (live fitmate-dev reports `loginTheme: None`, and the served page is the stock
+    # keycloak.v2). The provider writes a zero-value "" for an unset optional string and Keycloak
+    # reads "" as "use the server default", so ADDING this variable changes nothing for bosch,
+    # renesas, fitmate-stg or fitmate-prod until each one opts in. Same preserve-observed-state
+    # rule as the login flags and i18n above.
+    #
+    # 🔴 THE THEME MUST BE IN THE SERVER IMAGE BEFORE THIS IS SET. Keycloak does NOT validate the
+    # name: pointing a realm at a theme the running image does not carry is accepted by the admin
+    # API and by this provider, and the realm then silently falls back to the default theme at
+    # render time. The apply is green and the login page is byte-identical to before — which is
+    # indistinguishable from "the theme shipped but didn't work". Roll the image
+    # (parameters.keycloak.image, ops-tools) FIRST, confirm the pod is Ready on it, THEN set this.
+    #
+    # ⚠️ DELIBERATELY LOGIN-ONLY. `account_theme` and `email_theme` are NOT exposed by this module,
+    # and that omission IS the enforcement. The FitMate JAR declares the `login` type only, so
+    # pointing the account or email theme at `fitmate` would leave those pages with no templates to
+    # render. Leaving them unsettable here means it cannot be done by accident from an env file.
+    login_theme = optional(string)
+
     roles = optional(list(string), [])
 
     clients = optional(list(object({

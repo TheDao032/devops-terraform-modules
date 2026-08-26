@@ -16,7 +16,57 @@ spec:
     user:
       secret: keycloak-admin
 %{ if try(parameters.keycloak.image, "") != "" ~}
+  # CUSTOM IMAGE. Setting this changes the SERVER for every realm on it (fitmate-dev, -stg and
+  # prod all live on this one instance) — only `login_theme`, set per realm by the shared/keycloak
+  # module, is tenant-scoped. bosch and renesas are unaffected: they run a different module
+  # entirely (on-prem/helm/charts/keycloak), not this operator.
+  #
+  # THE OPERATOR STARTS A CUSTOM IMAGE WITH --optimized. Per the CRD's own `startOptimized`
+  # description, "if left unspecified the operator will assume custom images have already been
+  # augmented". That skips the boot-time build step the stock image currently relies on here:
+  # the live pod today starts with plain `start` and re-augments every boot (its
+  # lib/quarkus/ artifacts are rewritten at each start), consuming the KC_DB / KC_HEALTH_ENABLED
+  # env the operator injects.
+  #
+  # MEASURED 2026-08-26 on keycloak 26.7.0: an image built WITHOUT those baked in refuses them at
+  # an --optimized start with
+  #   "The following build time options have values that differ from what is persisted - the new
+  #    values will NOT be used until another build is run: kc.health-enabled, kc.db"
+  # health-enabled ignored means no /health/* on :9000 — and the operator wires ALL THREE probes
+  # (startup, readiness, liveness) there, so the pod never goes Ready and the StatefulSet rollout
+  # hangs while the container log looks clean. db ignored means no postgres driver.
+  # => the image referenced here MUST bake `ENV KC_DB=postgres` and `ENV KC_HEALTH_ENABLED=true`
+  #    before its `kc.sh build`. Re-verify this list if the operator's injected env ever changes.
   image: ${parameters.keycloak.image}
+%{ endif ~}
+%{ if try(parameters.keycloak.image_pull_secret, "") != "" ~}
+  # Only needed when the image lives in a PRIVATE registry. The named Secret must already exist in
+  # this namespace — nothing here creates it. Leave unset for a public package and the kubelet
+  # pulls anonymously; set it and forget the Secret, and you get ImagePullBackOff.
+  imagePullSecrets:
+    - name: ${parameters.keycloak.image_pull_secret}
+%{ endif ~}
+%{ if length(try(parameters.keycloak.additional_options, {})) > 0 ~}
+  # Free-form server options, rendered in sorted key order (Terraform iterates maps lexically, so
+  # this list is stable and does not churn the plan).
+  #
+  # RUNTIME OPTIONS ONLY. With a custom image the server starts --optimized, and any BUILD-TIME
+  # option placed here is silently ignored — the Keycloak operator guide says so outright ("with
+  # custom images, every build time option passed either through a dedicated field or the
+  # additionalOptions is ignored"). Build-time options belong in the image's Dockerfile.
+  #
+  # For SPI options the build-time set is exactly those whose names end in `--provider`,
+  # `--enabled` or `--provider-default`; everything else is runtime. The theme cache options used
+  # here end in none of those, so they are runtime and correct to set from the CR.
+  #
+  # Names carry NO leading dashes here — the operator turns each into an env var
+  # (spi-theme--cache-themes -> KC_SPI_THEME__CACHE_THEMES) and Keycloak maps it back, preserving
+  # the double separator. Values are quoted because the CRD types them as strings.
+  additionalOptions:
+%{ for k, v in try(parameters.keycloak.additional_options, {}) ~}
+    - name: ${k}
+      value: "${v}"
+%{ endfor ~}
 %{ endif ~}
   # Override the operator's PROD default (requests 1700Mi / limit 2Gi) — too big for the 2Gi-node
   # lab (no single node has 1700Mi free → FailedScheduling). Keycloak 26 is Quarkus, so it's happy
