@@ -10,8 +10,10 @@
 # nested blocks, and do not add a top-level scalar next to these maps (that breaks unification too).
 #
 # RESOURCE LIMITS ARE MANDATORY HERE, not hygiene. The FitMate lab schedules onto 3 agents with
-# 2 vCPU / 2962Mi each (both servers are control-plane tainted), ~51% already used. An unbounded
-# Prometheus on a 2.9Gi node evicts whatever else lands there. Measured tuned footprint ≈ 1–1.8Gi.
+# 3 vCPU / 3712Mi each (the single server is control-plane tainted). An unbounded Prometheus on
+# such a node evicts whatever else lands there. Measured tuned footprint ≈ 1–1.8Gi.
+# (Agents were 2 vCPU / 3072Mi until 2026-08-20, when k3s-server-2 was removed to fund the bump;
+# guest disks went 40G -> 100G on 2026-08-25, which is what allows 30d retention.)
 #
 # Sizing rationale: this scrapes ~11 services plus kube components — a few thousand active series.
 # That is small; the chart's own defaults are sized for production clusters and are 2–3x what is
@@ -41,6 +43,31 @@ prometheus:
     # retentionSize is the hard stop that actually protects the node as series count grows.
     retention: ${try(parameters.prometheus.retention, "7d")}
     retentionSize: ${try(parameters.prometheus.retention_size, "4GB")}
+
+    # ⚠️ WITHOUT THIS, PROMETHEUS RUNS ON emptyDir AND LOSES EVERY METRIC ON RESTART (IN-25).
+    # The operator only creates a PVC when spec.storage is set; with it unset the pod silently
+    # gets an emptyDir and nothing anywhere reports a problem.
+    #
+    # local-path DOES NOT ENFORCE `storage` — it bind-mounts a node directory, so this number is
+    # documentation, not a quota. retentionSize above is the setting that actually bounds growth.
+    # Raising one without the other is either a no-op (bigger PVC, same retentionSize) or a node
+    # killer (bigger retentionSize, Prometheus eats the root fs until DiskPressure evicts
+    # neighbours). MOVE BOTH TOGETHER. Official guidance: retentionSize <= 80-85% of this value,
+    # the remainder being scratch for in-progress compactions.
+    #
+    # local-path also ships ALLOWVOLUMEEXPANSION: false, so this cannot be grown in place — resizing
+    # means delete + recreate, destroying the history. Pick it once. On a real CSI (prod: Longhorn/
+    # Ceph/cloud) expansion works and this constraint disappears.
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ${try(parameters.prometheus.storage_class, "local-path")}
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              # Default deliberately matches the DEFAULT retentionSize above (4GB / 0.8 = 5Gi),
+              # so a caller who sets neither gets a coherent pair. FitMate overrides both.
+              storage: ${try(parameters.prometheus.storage_size, "5Gi")}
 
     resources:
       requests:
@@ -95,6 +122,23 @@ grafana:
       port: 3000
     periodSeconds: 10
     failureThreshold: 30
+
+%{ if try(parameters.grafana.storage_size, "") != "" ~}
+  # Grafana state that is NOT reproducible from code: annotations (incident markers), users and
+  # their preferences, starred dashboards, Explore history, and the alert-rule state Grafana owns.
+  # Dashboards themselves come from the sidecar as ConfigMaps and datasources are provisioned, so
+  # this is deliberately small — it is not where dashboards live.
+  # Omit grafana.storage_size entirely to run stateless (the previous behaviour).
+  # NOTE for prod: prefer an EXTERNAL database (the existing Postgres/Citus) over a PVC — that is
+  # what unlocks more than one Grafana replica. A ReadWriteOnce PVC pins Grafana to one node and
+  # caps it at a single replica.
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: ${try(parameters.grafana.storage_class, "local-path")}
+    accessModes: ["ReadWriteOnce"]
+    size: ${parameters.grafana.storage_size}
+%{ endif ~}
 
 %{ if try(parameters.grafana.loki_url, "") != "" ~}
   # Loki datasource — only rendered when the env actually supplies grafana.loki_url. FitMate has no

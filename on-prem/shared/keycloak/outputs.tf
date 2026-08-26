@@ -42,3 +42,22 @@ output "identity_provider_redirect_uris" {
     a => "${coalesce(var.public_base_url, var.keycloak_url)}/realms/${keycloak_realm.main.realm}/broker/${a}/endpoint"
   }
 }
+
+# ── Internationalization ─────────────────────────────────────────────────────────────────────────
+# Makes "is i18n on, and would a language switcher render?" answerable from `terragrunt output`
+# instead of from the admin console. The switcher is the part that surprises people: Keycloak draws
+# the #kc-locale dropdown only when i18n is enabled AND more than one locale is supported, so a
+# single-locale realm applies green and still has no way to change language.
+#
+# ⚠️ This reports the REALM SETTING ONLY. It cannot tell you whether the Keycloak image actually
+# ships those locales' message bundles — community translations are absent from Red Hat builds and
+# from any build using -DskipCommunityTranslations. Assert on rendered bytes for that (see README).
+output "realm_locales" {
+  description = "Realm i18n state: enabled, supported locales, default locale, and whether a language switcher will render (needs >1 locale). Realm setting only — does NOT prove the image ships those translations."
+  value = {
+    enabled            = var.realm.internationalization != null
+    supported_locales  = sort(try(var.realm.internationalization.supported_locales, []))
+    default_locale     = try(var.realm.internationalization.default_locale, null)
+    switcher_will_show = length(try(var.realm.internationalization.supported_locales, [])) > 1
+  }
+}
