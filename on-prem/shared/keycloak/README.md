@@ -59,8 +59,98 @@ Two combinations Keycloak rejects server-side are caught at plan time instead:
 `duplicate_emails_allowed` with either email-identity flag, and
 `registration_email_as_username` with `edit_username_allowed`.
 
+## Seed users: `key` vs `username`
+
+`keycloak_user` is `for_each`-ed over `realm.users`, keyed by **`key` when set, else `username`**.
+
+`username` is **mutable server-side**: with `registration_email_as_username = true`, Keycloak
+rewrites a user's username to their email. Correcting the config to match (per FitMate ADR-050,
+"the email IS the identifier") would move the `for_each` key and **destroy + recreate the user** —
+issuing a new `sub`, over a field Keycloak had already converged on. `initial_password` is
+create-only, so the recreated user also depends on `user_passwords` still resolving.
+
+Pin the resource address instead:
+
+```hcl
+users = [{
+  key      = "trainee1"                  # what state is ALREADY keyed by — verify: terragrunt state list
+  username = "trainee1@fitmate.local"    # free to change now
+  ...
+}]
+
+user_passwords = {
+  # 🔴 keyed by USERNAME (users.tf does lookup(var.user_passwords, each.value.username)).
+  # Leave a stale key here and the lookup misses, initial_password vanishes, and the user is
+  # created with NO PASSWORD — which surfaces as invalid_grant on a correctly-created user.
+  "trainee1@fitmate.local" = "..."
+}
+```
+
+**Adopting email-as-username in a new env**: change `username` **and** add `key` (set to the old
+username) **and** rekey `user_passwords` — all in the same commit. Doing only the first plans a
+destroy; doing the first two without the third silently drops the password.
+
+## Internationalization (i18n)
+
+`realm.internationalization` is **optional and defaults to `null`**, which emits no
+`internationalization` block at all and leaves the realm i18n-disabled — the state every realm this
+module manages is in today. Writing the block with empty contents is *not* the same as omitting it
+(it flips `internationalizationEnabled` to true), which is why `realm.tf` uses a `dynamic` block.
+Each env opts in:
+
+```hcl
+internationalization = {
+  supported_locales = ["vi", "en"]   # >1 entry is what makes the switcher render
+  default_locale    = "vi"           # must be one of supported_locales (validated)
+}
+```
+
+### Two traps, both of which produce a green apply and a wrong page
+
+**1. One locale enables i18n but renders no switcher.** Keycloak draws the language control only
+when i18n is on *and* `supported_locales` has more than one entry. A single-locale realm applies
+cleanly, translates the pages, and gives the user no way to change language — indistinguishable
+from a theme that forgot the control. `terragrunt output realm_locales` reports
+`switcher_will_show` so this is answerable without opening the admin console.
+
+**2. Enabling a locale does not mean its strings exist.** Keycloak's non-core translations ship in
+the `resources-community` Maven overlay. They are present in the upstream `quay.io/keycloak/keycloak`
+images but **absent from the Red Hat build of Keycloak (`registry.redhat.io/rhbk/*`)** and from any
+custom build using `-DskipCommunityTranslations`. On such an image the realm setting applies and
+every string still renders in English.
+
+### Verifying a locale actually renders
+
+Assert on **rendered bytes**, never on the realm setting or a key count — both pass while the page
+is still English:
+
+```bash
+curl -s -H 'Accept-Language: vi' '<login-url>' | grep -c 'Đăng nhập'   # >0 means it really rendered
+```
+
+To check the image *before* enabling a locale (no apply needed), read the message bundle out of the
+running pod — `kubectl cp` fails here because the Keycloak image has no `tar`, so stream it:
+
+```bash
+kubectl -n keycloak exec keycloak-0 -- \
+  cat /opt/keycloak/lib/lib/main/org.keycloak.keycloak-themes-<version>.jar > /tmp/kc-themes.jar
+unzip -l /tmp/kc-themes.jar | grep 'login/messages/messages_vi.properties'
+```
+
+### The switcher's DOM id is theme-specific
+
+In `keycloak.v2` (the default login theme in KC 26.x) the control is a native `<select>`:
+
+```html
+<select aria-label="languages" id="login-select-toggle" onchange="...">
+```
+
+It is **not** `#kc-locale` — that id belongs to the legacy `keycloak` theme. Custom themes and any
+DOM assertions should target `#login-select-toggle` / `select[aria-label="languages"]`.
+
 ## Outputs
-`issuer`, `client_ids`, `client_secrets` (sensitive), `realm`.
+`issuer`, `client_ids`, `client_secrets` (sensitive), `realm`, `realm_locales`,
+`identity_providers`, `identity_providers_skipped`, `identity_provider_redirect_uris`.
 
 ## Apply order
 `vault-secrets` (generates user passwords) → this unit (creates realm/clients/users, pushes the

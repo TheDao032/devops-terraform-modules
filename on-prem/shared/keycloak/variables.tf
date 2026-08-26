@@ -85,6 +85,38 @@ variable "realm" {
     # registration_email_as_username is on, or the "email IS the identity" invariant is editable.
     edit_username_allowed = optional(bool, false)
 
+    # ── Internationalization (i18n) ───────────────────────────────────────────────────────────────
+    # Turns on Keycloak's realm-level i18n and declares which locales the login/account pages may be
+    # rendered in. NULL (the default) emits NO `internationalization` block at all, which leaves the
+    # realm exactly where every realm this module manages is today: i18n disabled, pages English-only.
+    # That default is chosen the same way the login flags above were — to PRESERVE OBSERVED STATE, so
+    # that adding this variable cannot change bosch, renesas, fitmate-stg or fitmate-prod on their
+    # next apply. Each env opts in by setting the object.
+    #
+    # 🔑 THE LANGUAGE SWITCHER IS NOT A SEPARATE SETTING. Keycloak renders the `#kc-locale` dropdown
+    # only when i18n is enabled AND `supported_locales` has MORE THAN ONE entry. A single-locale list
+    # is a valid, successful apply that produces translated pages with NO way for a user to change
+    # language — which looks identical to "the theme forgot the switcher". If a switcher is wanted,
+    # list at least two locales.
+    #
+    # 🔑 ENABLING A LOCALE DOES NOT MEAN ITS STRINGS EXIST. Keycloak's non-core translations ship in
+    # the `resources-community` overlay. They are present in the upstream `quay.io/keycloak/keycloak`
+    # images, but ABSENT from the Red Hat build of Keycloak (`registry.redhat.io/rhbk/*`) and from any
+    # custom build made with `-DskipCommunityTranslations`. On such an image the realm setting applies
+    # cleanly and every string still renders in English. Verify against RENDERED BYTES, not the realm
+    # setting — see README ("Verifying a locale actually renders").
+    #
+    # `default_locale` must be one of `supported_locales` (validated below): Keycloak falls back to it
+    # whenever the request carries no usable locale hint, so a default outside the list is a fallback
+    # to something the realm has not enabled.
+    internationalization = optional(object({
+      # Locale codes, e.g. ["vi", "en"]. >1 entry is what makes the language switcher render.
+      supported_locales = list(string)
+      # Locale used when the request carries no `kc_locale` param, no KEYCLOAK_LOCALE cookie, no user
+      # `locale` attribute and no usable Accept-Language. Must appear in supported_locales.
+      default_locale = string
+    }))
+
     roles = optional(list(string), [])
 
     clients = optional(list(object({
@@ -116,6 +148,19 @@ variable "realm" {
     })), [])
 
     users = optional(list(object({
+      # TERRAFORM RESOURCE ADDRESS for this user — NOT the user's identity. Defaults to `username`.
+      #
+      # Exists because `username` is mutable server-side and the for_each key is not. Keycloak
+      # REWRITES a user's username to their email when registration_email_as_username is on, so
+      # correcting the config to match (per ADR-050, "the email IS the identifier") would move the
+      # map key from "trainee1" to "trainee1@fitmate.local" and Terraform would DESTROY AND RECREATE
+      # a user whose only change was a field it had already converged on. That recreate is not
+      # cosmetic: the user gets a NEW `sub`, and initial_password is create-only.
+      #
+      # Set `key` to whatever the resource is ALREADY keyed by in state, then change `username`
+      # freely. Leave unset for new users. Verify with `terragrunt state list` before setting it —
+      # a `key` that does not match state causes the very recreate it exists to prevent.
+      key      = optional(string)
       username = string
       enabled  = optional(bool, true)
       email    = optional(string)
@@ -193,6 +238,40 @@ variable "realm" {
   validation {
     condition     = !(var.realm.registration_email_as_username && var.realm.edit_username_allowed)
     error_message = "realm.registration_email_as_username requires edit_username_allowed = false — otherwise a user can edit away the email-as-identity invariant."
+  }
+
+  # An empty supported_locales with i18n enabled is accepted by the provider and produces a realm
+  # with internationalization ON and nothing to render in — Keycloak silently falls back to English.
+  # A green apply that did nothing, again.
+  validation {
+    condition = (
+      var.realm.internationalization == null ||
+      length(try(var.realm.internationalization.supported_locales, [])) > 0
+    )
+    error_message = "realm.internationalization.supported_locales must contain at least one locale."
+  }
+
+  # default_locale outside supported_locales means the realm falls back to a language it has not
+  # enabled. Keycloak accepts this pairing and then serves English, which reads as "the translation
+  # is missing" rather than "the default is wrong".
+  validation {
+    condition = (
+      var.realm.internationalization == null ||
+      contains(
+        try(var.realm.internationalization.supported_locales, []),
+        try(var.realm.internationalization.default_locale, "")
+      )
+    )
+    error_message = "realm.internationalization.default_locale must be one of realm.internationalization.supported_locales."
+  }
+
+  # Two users resolving to the same for_each key collide with an opaque duplicate-key error deep in
+  # the plan. Possible now that `key` can be set independently of `username`.
+  validation {
+    condition = length(var.realm.users) == length(distinct([
+      for u in var.realm.users : coalesce(u.key, u.username)
+    ]))
+    error_message = "realm.users[] must have unique keys — each user's `key` (or `username` when `key` is unset) must be distinct."
   }
 
   # A client with service_account_roles but no service account has no user to grant them to:

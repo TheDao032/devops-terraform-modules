@@ -1,7 +1,10 @@
 locals {
   roles   = toset(var.realm.roles)
   clients = { for c in var.realm.clients : c.client_id => c }
-  users   = { for u in var.realm.users : u.username => u }
+  # Keyed by `key` when set, else `username`. The indirection lets a user's username change (Keycloak
+  # rewrites it to the email under registration_email_as_username) WITHOUT moving the Terraform
+  # resource address — which would otherwise destroy and recreate the user, issuing a new `sub`.
+  users = { for u in var.realm.users : coalesce(u.key, u.username) => u }
 
   # Flatten each client's custom audiences → one audience protocol-mapper per (client, audience).
   # Key "<client_id>:<audience>" keeps the for_each stable across plans.
@@ -12,7 +15,7 @@ locals {
   ]...) : {}
 
   # Only users that actually have realm roles to assign.
-  users_with_roles = { for u in var.realm.users : u.username => u if length(u.realm_roles) > 0 }
+  users_with_roles = { for u in var.realm.users : coalesce(u.key, u.username) => u if length(u.realm_roles) > 0 }
 
   # Flatten each client's realm-management grants → one grant per (client, role). Key
   # "<client_id>:<role>" keeps the for_each stable across plans (same pattern as client_audiences).

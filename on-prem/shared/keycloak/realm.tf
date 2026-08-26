@@ -31,4 +31,22 @@ resource "keycloak_realm" "main" {
   # just created — in both cases the realm looks correctly configured. Add SMTP before either.
   reset_password_allowed = var.realm.reset_password_allowed
   verify_email           = var.realm.verify_email
+
+  # ── Internationalization ──────────────────────────────────────────────────────────────────────
+  # DYNAMIC on purpose. An always-present block would force every caller to supply locales, and —
+  # worse — writing the block with zero-value contents is NOT the same as omitting it: it flips the
+  # realm's `internationalizationEnabled` to true. Every realm this module manages currently has it
+  # false, so a null default that emits nothing is the only shape that leaves bosch, renesas, stg
+  # and prod untouched when this variable lands.
+  #
+  # Keycloak renders the `#kc-locale` language dropdown ONLY when this block exists AND
+  # supported_locales has >1 entry. With i18n off, the control does not exist in the DOM at all —
+  # no theme can add it back, which is why this is realm config and not theme work.
+  dynamic "internationalization" {
+    for_each = var.realm.internationalization == null ? [] : [var.realm.internationalization]
+    content {
+      supported_locales = internationalization.value.supported_locales
+      default_locale    = internationalization.value.default_locale
+    }
+  }
 }
