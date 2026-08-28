@@ -81,11 +81,18 @@
 # ── 🔴 usages: LEAF certificates must list client auth EXPLICITLY ────────────────────────────
 #
 # https://cert-manager.io/docs/usage/certificate/ says the default usages are "digital signature,
-# key encipherment, and server auth". That page is WRONG and has been for five years — `serverAuth`
-# was added for macOS Catalina in v0.12 (PR #2303), then REMOVED in v0.15.0 (PR #2864) because it
-# broke gRPC mTLS (issue #2407). The v0.15.0 note is marked ACTION REQUIRED. The docs bug is
-# cert-manager/website#706, filed 2021, closed unfixed 2025. The API reference is the accurate
-# one: "If unset, defaults to `digital signature` and `key encipherment`."
+# key encipherment, and server auth". That page is WRONG. Verified across release tags:
+# `serverAuth` was in DefaultKeyUsages() for v0.12.0-v0.14.x ONLY and was REMOVED at v0.15.0
+# (published 2020-05-06), whose release note reads: "Remove `serverAuth` key usage from set of
+# defaults. If your configured issuer does not automatically set this usage and you do require it,
+# you will need to manually update your Certificate & CertificateRequest resources to contain the
+# `serverAuth` usage". The API reference is the accurate one: "If unset, defaults to `digital
+# signature` and `key encipherment`."
+#
+# The docs page still carries the claim today and demonstrably carried it on 2022-04-12 (oldest
+# commit on that path), so it has been wrong for AT LEAST 4 years. Whether it was also wrong in
+# the 2020-05-06 -> 2022-04-12 window is unverified — the website repo was restructured and the
+# path history does not reach back that far. Stated as a floor, not a round number.
 #
 # So the real default is worse than the ADR assumed: NEITHER server auth NOR client auth is set.
 # Confirmed by measurement here — the existing vault-tls-server leaf sets no usages and was issued
