@@ -1,0 +1,138 @@
+%{ if try(parameters.common.alerts.enabled, false) ~}
+---
+# Certificate expiry and renewal-failure alerting for cert-manager.
+#
+# WHY THIS EXISTS: measured on this cluster 2026-08-28, cert-manager was invisible to monitoring.
+# Prometheus held ZERO certmanager_* series and had ZERO cert-manager scrape targets out of 28
+# active ones. The chart ships prometheus.servicemonitor.enabled=false by default, so the metrics
+# endpoint on :9402 was live and simply nobody was reading it. The 8 certificate-ish alert rules
+# already in the cluster are all kubelet/apiserver client-cert rules from kube-prometheus-stack —
+# none of them observe a cert-manager Certificate.
+#
+# The practical consequence was that a FAILED RENEWAL produced no signal whatsoever. The first
+# indication would have been the expiry itself, surfacing as TLS handshake failures across every
+# service at once, with nothing pointing at certificates as the cause.
+#
+# This file is paired with prometheus.servicemonitor.enabled=true in values.controller.yml.tftpl.
+# Neither half works alone: the ServiceMonitor with no rules gives metrics nobody watches, and the
+# rules with no ServiceMonitor evaluate against series that do not exist and stay silently
+# inactive forever. That second failure mode is the dangerous one, which is why CertManagerMetricsMissing
+# below exists.
+#
+# Prometheus discovers both automatically: measured, this cluster's Prometheus CR has
+# serviceMonitorSelector, serviceMonitorNamespaceSelector, ruleSelector and ruleNamespaceSelector
+# all set to {} — match everything, in every namespace. No labels are needed here.
+#
+# ⚠️ ALERTS FIRING IS NOT THE SAME AS SOMEONE BEING TOLD. Measured on this cluster, Alertmanager
+# has exactly one receiver, named `null`, with no integrations, and the root route sends
+# everything to it. Every alert in this file will show up in the Prometheus and Alertmanager UIs
+# and will notify NOBODY until a real receiver is configured. That is a deliberate separate
+# change — picking the channel is not a decision to make on someone's behalf.
+#
+# Metric names and label sets below were read from the live :9402 endpoint on this install, not
+# from documentation.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cert-manager-certificates
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: cert-manager
+spec:
+  groups:
+    - name: cert-manager.certificates
+      rules:
+        # ── The SC-005 alert: at least 7 days of warning before expiry ────────────────────────
+        #
+        # Thresholds are chosen against renewBefore, not picked for roundness. Certificates in
+        # this cluster renew 30d before expiry (720h), so a certificate still un-renewed at 21d
+        # has already missed its renewal window by 9 days and something is wrong. Firing at 21d
+        # leaves 21 days of runway — three times the 7 days spec 069 SC-005 asks for, and enough
+        # that a renewal problem can be fixed inside a normal working week rather than an
+        # incident.
+        #
+        # 🔴 If any Certificate is ever given a renewBefore SHORTER than 21d, this alert will fire
+        # constantly for it during normal healthy operation. Raise renewBefore or scope this rule
+        # — do not silence it, because it is the only expiry signal that exists.
+        - alert: CertManagerCertificateExpiringSoon
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < (21 * 24 * 3600)
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in under 21 days"
+            description: >-
+              Issued by {{ $labels.issuer_kind }}/{{ $labels.issuer_name }}. It expires in
+              {{ $value | humanizeDuration }} and has not been renewed. Certificates here renew 30
+              days before expiry, so this one has already missed its renewal window. Check the
+              Certificate and its CertificateRequest for a failure reason.
+
+        # A Certificate whose Ready condition is not True. This is the EARLIEST signal — it fires
+        # when a renewal attempt fails, typically weeks before the expiry alert would.
+        #
+        # The metric is emitted once per condition value with a 0/1 value, so the comparison must
+        # be against condition="True" specifically. Alerting on condition="False" == 1 instead
+        # would miss the Unknown state entirely.
+        - alert: CertManagerCertificateNotReady
+          expr: certmanager_certificate_ready_status{condition="True"} == 0
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} is not Ready"
+            description: >-
+              Issued by {{ $labels.issuer_kind }}/{{ $labels.issuer_name }}. Not Ready for over an
+              hour. If this is a renewal failure the certificate is still valid for now, so this
+              is the window in which to fix it cheaply.
+
+        # Renewal time has passed and the certificate is still the old one. Catches the case where
+        # cert-manager is not erroring, it is simply not acting — a stuck controller, a deleted
+        # CertificateRequest, an issuer that went NotReady. Ready would still be True here, so the
+        # alert above does not cover it.
+        - alert: CertManagerCertificateRenewalOverdue
+          expr: certmanager_certificate_renewal_timestamp_seconds < time()
+          for: 6h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} is past its renewal time"
+            description: >-
+              cert-manager should have renewed this certificate by now and has not. It is not
+              necessarily failing — it may not be trying. Check the issuer
+              {{ $labels.issuer_kind }}/{{ $labels.issuer_name }} is Ready.
+
+        - alert: CertManagerControllerSyncErrors
+          expr: rate(certmanager_controller_sync_error_count[10m]) > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "cert-manager controller {{ $labels.controller }} is erroring during sync"
+            description: >-
+              Sustained sync errors for 30 minutes. Issuance and renewal may both be stalled, which
+              would make the certificate alerts here lagging indicators rather than leading ones.
+
+        # ── The alert that guards the other alerts ───────────────────────────────────────────
+        #
+        # Every rule above evaluates against certmanager_* series. If the ServiceMonitor is
+        # deleted, mislabelled, or the metrics port changes, those series disappear — and a rule
+        # with no matching series is not "passing", it is simply never evaluated. All five alerts
+        # above would go quiet in exactly the way they do when everything is healthy.
+        #
+        # That is precisely the state this cluster was in before this change: silent, and
+        # indistinguishable from fine. absent() is what makes the difference visible.
+        - alert: CertManagerMetricsMissing
+          expr: absent(certmanager_certificate_ready_status)
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: "cert-manager metrics are not being scraped — certificate alerting is BLIND"
+            description: >-
+              No certmanager_certificate_ready_status series for 30 minutes. Every certificate
+              expiry and renewal alert depends on these metrics, so all of them are currently
+              inactive rather than passing. Check the cert-manager ServiceMonitor and that the
+              controller is running.
+---
+%{ endif ~}
