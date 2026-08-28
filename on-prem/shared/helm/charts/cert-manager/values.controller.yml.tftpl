@@ -7,3 +7,23 @@
 # public certs) and requires a CLOUDFLARE_API_TOKEN, which makes no sense on local k3s.
 crds:
   enabled: true   # install CRDs with the chart (cert-manager >= v1.15 syntax)
+
+# ── Prometheus scraping (measured gap, 2026-08-28) ──────────────────────────────────────────
+# The chart defaults prometheus.servicemonitor.enabled to FALSE. With kube-prometheus-stack
+# installed and discovering ServiceMonitors cluster-wide (all four selectors are {}), that
+# default was the single reason Prometheus held zero certmanager_* series and cert-manager
+# appeared in none of the 28 active scrape targets — while the metrics endpoint on :9402 was
+# up and serving the whole time.
+#
+# Without this, a certificate that FAILS TO RENEW produces no signal at all; the first symptom
+# is TLS handshake failures everywhere at once, on the expiry date.
+#
+# Paired with templates/exec/certificate-alerts.yml.tftpl, which carries the alert rules. This
+# half alone yields metrics nobody looks at.
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
+    # 60s is the chart default and is ample: certificate expiry moves on a scale of days, and
+    # the alerts here use `for:` windows of an hour or more.
+    interval: 60s
