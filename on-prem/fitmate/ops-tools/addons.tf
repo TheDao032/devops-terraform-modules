@@ -96,6 +96,16 @@ locals {
   keycloak_db      = try(var.keycloak_conf.db, {})
   keycloak_admin   = try(var.keycloak_conf.admin, {})
   keycloak_routing = try(var.keycloak_conf.routing, {})
+  # mailpit — the DEV MAIL CATCHER (ADR-094, SCRUM-450 / SCRUM-453).
+  #
+  # Same length()-gate as every other addon: an env that never sets mailpit_conf gets nothing,
+  # which is how "dev only" is kept true for stg and prod by default. Note that the gate protects
+  # the STACK, not the WIRING — the thing that would actually make a catcher dangerous is a stg or
+  # prod SMTP client pointed at it, and that lives in the keycloak realm units and the
+  # notification-service overlays, not here.
+  mailpit_enabled = length(var.mailpit_conf) > 0 ? local.enabled : local.disabled
+  mailpit_mp      = try(var.mailpit_conf.mailpit, {})
+  mailpit_routing = try(var.mailpit_conf.routing, {})
 
   # argocd_img_upd_helm   = var.argocd_img_upd_conf.helm
   # argocd_img_upd_docker = var.argocd_img_upd_conf.docker
@@ -443,4 +453,128 @@ module "grafana-routing" {
   }
 
   depends_on = [module.prometheus]
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# mailpit — the DEV MAIL CATCHER (ADR-094, closes SCRUM-450 / unblocks SCRUM-453 on dev)
+#
+# MANIFEST MODE (helm_release_enabled = false), like keycloak-operator. mailpit publishes no
+# official Helm chart — its install docs cover packages, Docker, binaries and systemd, and
+# /docs/install/kubernetes/ is a 404 (checked 2026-09-13). The ArtifactHub charts are
+# third-party. For one stateless container with two ports, a third-party chart adds a supply
+# chain and a version axis and buys nothing. The rendered Deployment + Service live in
+# ../../shared/helm/charts/mailpit/values.yml.tftpl.
+#
+# 🔴 WHAT THIS BUYS AND WHAT IT DOES NOT. A catcher proves delivery TO THE CATCHER: an SMTP
+# conversation happened, and the rendered body can be read (vi/en copy, CTA URL, masked
+# recipient) — which is strictly MORE than a real relay gives, because a relay returns a receipt
+# you cannot open. It proves NOTHING about deliverability to a human: not SPF/DKIM alignment,
+# not spam classification, not bounces, not rate limits. A green dev email E2E is not evidence
+# that FitMate can send mail, and must never be cited as such (ADR-094, binding).
+#
+# 🔴 DEV ONLY. Not staging, not production. This stack is inert unless an env sets mailpit_conf.
+# The real risk is not the catcher existing — it is an SMTP client in a serious environment
+# pointed at it, so that "we sent it" quietly becomes a lie again. Keep the SMTP address in
+# exactly two places: the fitmate/dev Keycloak realm unit, and notification-service's dev
+# overlay. If it ever appears in a stg or prod config, that is the bug.
+#
+# In-cluster address for both clients: mailpit.<namespace>.svc.cluster.local:1025
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+module "mailpit" {
+  source               = "../../shared/helm"
+  enabled              = local.mailpit_enabled
+  environment          = var.environment
+  name                 = "mailpit"
+  namespace            = try(local.mailpit_mp.namespace, "mailpit")
+  repository           = ""
+  chart_version        = ""
+  helm_release_enabled = false
+  server_side_apply    = true
+  # This module OWNS the mailpit namespace — nothing else lives there and nothing else created
+  # it. (Contrast kube-system, where create_namespace must be false or Terraform silently adopts
+  # a namespace it did not make.)
+  create_namespace            = true
+  manifest_override_namespace = try(local.mailpit_mp.namespace, "mailpit")
+
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+
+  # ⚠️ THIS BLOCK IS AN ALLOW-LIST, NOT A PASSTHROUGH. Every key values.yml.tftpl reads must be
+  # named here explicitly. A key an env sets that is missing from this list is silently DROPPED,
+  # and the template's own try()/default then hides the drop completely — the plan stays green
+  # and the pod runs with a default nobody chose. If you add a template parameter, add it here in
+  # the SAME commit and verify against the RENDERED object
+  # (`terragrunt state show module.mailpit.kubectl_manifest.main[0] | grep <field>`) or the live
+  # resource — never by a green plan.
+  parameters = {
+    mailpit = {
+      # Pinned by tag, never `latest`. v1.31.1's Docker Hub manifest carries linux/arm64, which
+      # this lab requires (Apple Silicon host → arm64 VMs). Re-check the arch list on every bump.
+      image = try(local.mailpit_mp.image, "axllent/mailpit:v1.31.1")
+
+      # Retention. Three independent bounds because each alone has a hole: count ignores bytes,
+      # age ignores bursts, and only the volume limit is enforced by the kubelet. See the
+      # local-path caveat on variable "mailpit_conf" for why this is an emptyDir and not a PVC.
+      max_messages     = try(local.mailpit_mp.max_messages, 500)
+      max_age          = try(local.mailpit_mp.max_age, "72h")
+      max_message_size = try(local.mailpit_mp.max_message_size, "10")
+      # ⚠️ MEGABYTES, NOT BYTES — MP_MAX_MESSAGE_SIZE is documented as "Maximum size in MB".
+      # This was first written as 10485760 ("10 MB in bytes"), which mailpit reads as 10 TB:
+      # a silently-removed limit that a green plan and a Running pod would both have hidden.
+      # Exactly the failure mode the allow-list warning above describes. 10 MB is ~25x any
+      # mail FitMate sends (text plus a CTA link).
+      storage_size = try(local.mailpit_mp.storage_size, "512Mi")
+
+      # ⚠️ UNMEASURED ESTIMATE, sized from what mailpit is (one static Go binary + a small SQLite
+      # file), not from observation in this cluster. Said plainly on purpose: the Grafana limits
+      # above were once justified by a confident number that turned out to be a fresh-pod reading.
+      # Re-measure from the pod's own metrics after this has held mail for a week.
+      # Requests are what the scheduler reserves on a 3-agent lab and are the real cost; the CPU
+      # limit is deliberately generous burst headroom, the MEMORY limit is the discipline.
+      cpu_request    = try(local.mailpit_mp.cpu_request, "10m")
+      memory_request = try(local.mailpit_mp.memory_request, "48Mi")
+      cpu_limit      = try(local.mailpit_mp.cpu_limit, "500m")
+      memory_limit   = try(local.mailpit_mp.memory_limit, "256Mi")
+    }
+  }
+}
+
+# mailpit UI exposure — Gateway API HTTPRoute on the shared traefik-gateway `web` listener, same
+# pattern as argocd-routing and grafana-routing. Backend is the mailpit Service on :8025 (plain
+# HTTP), so no BackendTLSPolicy — which also sidesteps the Traefik GW API hostname-verification
+# bug that blocks re-encrypting to HTTPS backends.
+#
+# 🔴 THE UI HAS NO AUTHENTICATION, and its contents are more sensitive than Grafana's or
+# Prometheus's: a mail catcher holds password-reset links and email-verification links, which are
+# bearer credentials. Anyone who can load this page can take over any dev account that has ever
+# requested a reset. That is acceptable ONLY because this is a lab-internal `.k3s.<suffix>` name
+# on the `web` listener, reachable from the LAN and not published through Cloudflare.
+# DO NOT attach this to a public hostname, to `websecure` for external use, or to the Cloudflare
+# tunnel without putting Cloudflare Access (or equivalent) in front of it.
+# The in-product upgrade path if that changes: mailpit's MP_UI_AUTH_FILE (htpasswd), which leaves
+# /livez and /readyz unauthenticated — they are registered outside the UI middleware in v1.31.1,
+# so adding auth does not break the probes.
+module "mailpit-routing" {
+  source      = "../../shared/routing"
+  enabled     = local.mailpit_enabled
+  environment = var.environment
+  namespace   = try(local.mailpit_mp.namespace, "mailpit")
+  route_type  = var.route_type
+
+  host                   = var.host
+  client_key             = var.client_key
+  client_certificate     = var.client_certificate
+  cluster_ca_certificate = var.cluster_ca_certificate
+  token                  = var.token
+  tags                   = var.tags
+
+  parameters = {
+    routing = local.mailpit_routing
+  }
+
+  depends_on = [module.mailpit]
 }

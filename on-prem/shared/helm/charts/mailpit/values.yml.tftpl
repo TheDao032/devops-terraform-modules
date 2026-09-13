@@ -1,0 +1,251 @@
+# mailpit — the DEV MAIL CATCHER (ADR-094, SCRUM-450 / SCRUM-453).
+#
+# MANIFEST MODE. This is NOT a Helm values file: shared/helm is called with
+# helm_release_enabled = false, so this template is rendered and applied verbatim as raw
+# manifests (multi-doc, split on a bare "---"). There is no chart, no repository and no
+# chart_version to drift.
+#
+# WHY MANIFEST MODE AND NOT A CHART: mailpit publishes NO official Helm chart. Its install
+# docs (https://mailpit.axllent.org/docs/install/) cover package managers, a shell installer,
+# static binaries, Docker, source and systemd — there is no Kubernetes page at all
+# (/docs/install/kubernetes/ is a 404, checked 2026-09-13). The charts on ArtifactHub are
+# third-party. For ONE stateless container with two ports, adopting a third-party chart buys
+# nothing and adds a supply-chain dependency plus a version axis to keep pinned. Same call as
+# charts/keycloak-operator.
+#
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# 🔴 WHAT THIS PROVES, AND WHAT IT DOES NOT
+#
+# A catcher proves delivery TO THE CATCHER. It proves an SMTP conversation happened, and it
+# lets you read the rendered body — subject, vi/en copy, CTA URL, masked recipient. That is
+# genuinely more than a real relay gives you, because a relay returns a receipt you cannot
+# open.
+#
+# It proves NOTHING about deliverability to a human. It cannot observe SPF/DKIM/DMARC
+# alignment, spam classification, bounce handling, reputation or provider rate limits — the
+# things that actually decide whether a person reads the mail. A green email E2E against this
+# catcher MUST NOT be cited as evidence that FitMate can send mail. Carry that caveat into
+# every ticket and test report that touches it (ADR-094, binding).
+#
+# 🔴 DEV ONLY. NOT staging. NOT production. A catcher in an environment someone mistakes for
+# real is how "we sent it" becomes a lie again. The enforcement is NOT in this file — this
+# file only makes the catcher exist. Enforcement lives at the two WIRING sites:
+#   • the Keycloak realm smtp_server block: set ONLY on fitmate/dev/keycloak/fitmate
+#   • notification-service config/dev/config.yaml: dev overlay ONLY
+# If you ever find this address in a stg or prod config, that is the bug.
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/name: mailpit
+    app.kubernetes.io/component: mail-catcher
+    app.kubernetes.io/managed-by: terraform
+    fitmate.io/environment: ${environment}
+spec:
+  # Exactly ONE replica, and it must stay one. Every replica keeps its own message store, so
+  # two replicas behind one ClusterIP means a message lands in one of two mailboxes at random
+  # and the UI shows whichever pod the browser was balanced to. "The email never arrived" and
+  # "you are looking at the other replica" are indistinguishable.
+  replicas: 1
+  strategy:
+    # Recreate, not RollingUpdate: the store is pod-local, so an overlap window would split
+    # captures across two pods for the duration of the roll — the same confusion as above,
+    # arriving silently during an upgrade.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mailpit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mailpit
+        app.kubernetes.io/component: mail-catcher
+    spec:
+      securityContext:
+        # The upstream image carries NO `USER` directive, so it runs as ROOT unless told
+        # otherwise (checked against the v1.31.1 Dockerfile, not assumed). The binary is
+        # CGO_ENABLED=0 and fully static at /mailpit, so any UID works.
+        # fsGroup is what makes the emptyDir below writable by that UID — without it the
+        # SQLite store fails to open and the pod crashloops with a permissions error.
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mailpit
+          # PINNED BY TAG, never `latest`. v1.31.1 (released 2026-09-05); the Docker Hub tag
+          # carries linux/386, linux/amd64 and linux/arm64 — arm64 confirmed, which this lab
+          # needs (Apple Silicon host, arm64 VMs). Re-check the arch list on every bump.
+          image: ${parameters.mailpit.image}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: smtp
+              containerPort: 1025
+              protocol: TCP
+            - name: http
+              containerPort: 8025
+              protocol: TCP
+          env:
+            # ── Bind addresses ──────────────────────────────────────────────────────────────
+            # These ARE the documented defaults; they are set explicitly so the manifest states
+            # the contract rather than inheriting it from an image that could change it.
+            - name: MP_SMTP_BIND_ADDR
+              value: "0.0.0.0:1025"
+            - name: MP_UI_BIND_ADDR
+              value: "0.0.0.0:8025"
+
+            # ── Persistent store ────────────────────────────────────────────────────────────
+            # Without MP_DATABASE, mailpit writes to "a local temporary file which is
+            # auto-deleted when Mailpit exits" (upstream wording). Naming it puts the store on
+            # the emptyDir below, where readOnlyRootFilesystem cannot block it.
+            - name: MP_DATABASE
+              value: "/data/mailpit.db"
+
+            # ── RETENTION — THE BOUND THAT ACTUALLY BINDS (ADR-094: "bound the retention") ───
+            # THREE independent limits, deliberately. Any one of them alone has a hole:
+            #   max messages  — bounds COUNT, not bytes. 500 messages with large attachments
+            #                   is still unbounded in the dimension that fills a disk.
+            #   max age       — bounds TIME, not volume. A burst inside the window is unbounded.
+            #   volume size   — bounds BYTES, and is the only one the kubelet enforces.
+            # ⚠️ A PVC WOULD NOT HAVE GIVEN US THE THIRD. This cluster's default StorageClass is
+            # `local-path` (rancher.io/local-path), which bind-mounts a node directory and does
+            # NOT enforce requests.storage — a 1Gi PVC there happily grows to fill the node.
+            # An emptyDir sizeLimit IS enforced (the kubelet evicts the pod). That is the whole
+            # reason this is an emptyDir and not a PVC; do not "upgrade" it to a PVC thinking
+            # the size field will hold.
+            - name: MP_MAX_MESSAGES
+              value: "${parameters.mailpit.max_messages}"
+            - name: MP_MAX_AGE
+              value: "${parameters.mailpit.max_age}"
+            # Rejects oversized mail at SMTP time (v1.30.0+).
+            # ⚠️ THE UNIT IS MEGABYTES, NOT BYTES. Upstream: "Maximum size in MB of messages to
+            # accept via SMTP & API", default 50. A byte count here (10485760) is read as 10 TB
+            # and quietly deletes the limit — the pod still starts and the plan still goes green.
+            - name: MP_MAX_MESSAGE_SIZE
+              value: "${parameters.mailpit.max_message_size}"
+
+            # ── SMTP AUTH: ACCEPT ANYTHING ──────────────────────────────────────────────────
+            # Upstream, verbatim: "By default, the Mailpit SMTP server listens on port 1025 and
+            # does not use encryption or authentication." So an unauthenticated client already
+            # works, and that is the path Keycloak takes (its realm smtp_server omits the auth
+            # block entirely → the provider sends Auth=false).
+            #
+            # These two flags exist for the OTHER client. notification-service is a Go SMTP
+            # client reading user/password from config; if either is ever non-empty it will
+            # attempt AUTH, and mailpit refuses AUTH on an unencrypted connection unless
+            # --smtp-auth-allow-insecure is set. accept-any then makes any credential (or none)
+            # succeed. Without BOTH, a config that merely LOOKS harmless — a leftover username
+            # in the dev overlay — turns into a send failure that reads like a mailpit outage.
+            #
+            # This is safe here and ONLY here: the SMTP port is ClusterIP, unpublished, and the
+            # catcher holds test mail by construction. It would be indefensible on anything
+            # carrying real mail — which is one more reason this is dev-only.
+            - name: MP_SMTP_AUTH_ACCEPT_ANY
+              value: "true"
+            - name: MP_SMTP_AUTH_ALLOW_INSECURE
+              value: "true"
+
+            # MP_ALLOWED_HOSTS is deliberately UNSET. Left unset, any Host header is accepted.
+            # Setting it would add a DNS-rebinding defence, but the kubelet probes below dial
+            # the POD IP and send `Host: <podIP>:8025` — so an allow-list containing only the
+            # routed hostname risks failing the probes and crashlooping the pod for a marginal
+            # gain on a LAN-internal name that has no authentication to protect anyway. If it
+            # is ever added, include the pod IP form or confirm /livez bypasses the check, and
+            # verify by watching the pod stay Ready — not by a green apply.
+          livenessProbe:
+            # /livez and /readyz are real routes in v1.31.1 (server/server.go registers both),
+            # and both are registered WITHOUT the UI middleware — so they keep working if basic
+            # auth is ever added. Same endpoints the image's own HEALTHCHECK uses.
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            # ⚠️ THESE NUMBERS ARE NOT MEASURED — they are sized from what mailpit is (one
+            # static Go binary plus a small SQLite file), NOT from observation in this cluster.
+            # Saying so matters: the Grafana limits three blocks down in ops-tools were once
+            # justified by a confident "~218Mi steady state" that was a fresh-pod reading, and
+            # the wrong number cost a day. RE-MEASURE after this has held mail for a week and
+            # correct these from the pod's own metrics.
+            #
+            # Requests are what the scheduler reserves and are therefore the real cost on a
+            # 3-agent lab; limits reserve nothing, so the CPU limit is deliberately generous
+            # burst headroom rather than a discipline. The MEMORY limit is the discipline.
+            requests:
+              cpu: ${parameters.mailpit.cpu_request}
+              memory: ${parameters.mailpit.memory_request}
+            limits:
+              cpu: ${parameters.mailpit.cpu_limit}
+              memory: ${parameters.mailpit.memory_limit}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          emptyDir:
+            # ENFORCED, unlike a local-path PVC's requests.storage. Exceeding it evicts the
+            # pod — loud, and preferable to a node disk filling up silently.
+            #
+            # Captured mail does NOT survive a pod restart, and that is intended, not a
+            # limitation being tolerated: test mail has no value past the test, and a clean
+            # slate on every roll is a fourth bound on growth. If a QA run needs a message
+            # kept, export it from the UI rather than adding a PVC here.
+            sizeLimit: ${parameters.mailpit.storage_size}
+        - name: tmp
+          emptyDir:
+            # readOnlyRootFilesystem makes / unwritable; mailpit needs a scratch dir for
+            # attachment handling. Without this, large-attachment paths fail in a way that
+            # looks like a corrupt message rather than a filesystem error.
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/name: mailpit
+    app.kubernetes.io/component: mail-catcher
+    app.kubernetes.io/managed-by: terraform
+spec:
+  # ClusterIP ON PURPOSE. NodePort or LoadBalancer would put an open, unauthenticated SMTP
+  # relay-looking endpoint on the LAN. Every client is in-cluster:
+  #   keycloak-service            ns keycloak
+  #   notification-service        ns fitmate-notification-dev
+  # Both reach it as mailpit.${namespace}.svc.cluster.local:1025. The UI is published through
+  # the Gateway API HTTPRoute in ops-tools instead, which at least terminates at Traefik.
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mailpit
+  ports:
+    - name: smtp
+      port: 1025
+      targetPort: smtp
+      protocol: TCP
+    - name: http
+      port: 8025
+      targetPort: http
+      protocol: TCP
