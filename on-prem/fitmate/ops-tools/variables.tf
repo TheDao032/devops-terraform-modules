@@ -234,3 +234,37 @@ variable "prometheus_conf" {
   type        = any
   default     = {}
 }
+
+variable "mailpit_conf" {
+  # intentionally any: freeform mailpit manifest parameters (helm + mailpit + routing blocks),
+  # sliced by try() in addons.tf and handed to shared/helm as opaque parameters.
+  #
+  # ADR-094 — the DEV MAIL CATCHER. Deployed in MANIFEST mode (helm_release_enabled = false)
+  # because mailpit publishes no official Helm chart; see charts/mailpit/values.yml.tftpl.
+  #
+  # 🔴 A CATCHER PROVES DELIVERY TO THE CATCHER, NOT DELIVERABILITY TO A HUMAN. It cannot observe
+  # SPF/DKIM alignment, spam classification, bounce handling or provider rate limits. A green
+  # email E2E against it is NOT evidence that FitMate can send mail. That caveat is binding and
+  # must travel with every ticket and test report that cites this stack.
+  #
+  # 🔴 DEV ONLY. Not staging, not prod. Leaving mailpit_conf unset disables the whole stack
+  # (the same length()-gate every other addon here uses), so a stg/prod env that simply never
+  # sets it gets nothing. The dangerous half is not this stack existing — it is a stg or prod
+  # SMTP client pointed AT it. Enforcement therefore lives at the wiring sites:
+  #   • Keycloak realm smtp_server → set ONLY on fitmate/dev/keycloak/fitmate
+  #   • notification-service config → dev overlay ONLY
+  #
+  # ⚠️ RETENTION IS MANDATORY, and the reason is specific to this cluster: the default
+  # StorageClass is `local-path`, which bind-mounts a node directory and does NOT enforce a PVC's
+  # requests.storage — so a PVC size field here would be documentation, not a limit. The chart
+  # therefore bounds growth three ways (max_messages, max_age, and an emptyDir sizeLimit the
+  # kubelet actually enforces). Do not relax all three at once.
+  description = "Configuration for mailpit, the dev-only mail catcher (mailpit + routing blocks). Unset = not deployed."
+  type        = any
+  default     = {}
+
+  validation {
+    condition     = can(keys(var.mailpit_conf))
+    error_message = "mailpit_conf must be a map/object."
+  }
+}

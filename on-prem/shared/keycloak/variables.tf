@@ -143,6 +143,54 @@ variable "realm" {
     # render. Leaving them unsettable here means it cannot be done by accident from an env file.
     login_theme = optional(string)
 
+    # ── SMTP ──────────────────────────────────────────────────────────────────────────────────
+    # The realm's outbound mail server. DYNAMIC and null-by-default for the same reason as
+    # `internationalization` above: writing the block with zero-value contents is NOT the same as
+    # omitting it. Every realm this module manages currently has `smtpServer: {}`, so a null
+    # default that emits nothing is the only shape that leaves bosch, renesas, fitmate-stg and
+    # fitmate-prod byte-identical when this variable lands.
+    #
+    # 🔴 THERE IS NO `auth` FIELD HERE, AND THAT IS DELIBERATE — NOT AN OVERSIGHT.
+    # In keycloak/keycloak v5.9.0 (verified against the shipped provider schema, not the docs)
+    # `auth` is not a boolean attribute on smtp_server at all: it is a nested BLOCK whose
+    # `username` and `password` are both Required. `auth = false` is therefore not expressible —
+    # writing it is a type error, not a working "disable auth". The provider derives the flag from
+    # presence: resource_keycloak_realm.go does
+    #     if len(authConfig) == 1 { smtpServer.Auth = true … } else … { smtpServer.Auth = false }
+    # so OMITTING the block is exactly how you get unauthenticated SMTP. No dummy credential pair
+    # is needed. (`token_auth`, for OAuth2/XOAUTH2 relays, is likewise not exposed — add it only
+    # when a real provider needs it, with the secret coming from Vault.)
+    #
+    # Because there is no auth here, this module CANNOT be used to configure an authenticated
+    # relay, which is the right constraint today: the only mail target that exists is the dev
+    # catcher. When production gets a real provider, that credential must come from Vault, and
+    # adding it will be a conscious, reviewed change rather than a field someone fills in.
+    #
+    # 🔴 SETTING THIS DOES NOT MAKE MAIL REACHABLE BY A HUMAN. On dev it points at mailpit, which
+    # is a CATCHER: it proves an SMTP conversation happened and lets you read the rendered body,
+    # and it proves nothing about SPF/DKIM, spam classification or bounce handling. Do not read a
+    # green dev email test as deliverability (ADR-094).
+    #
+    # ⚠️ ORDER OF OPERATIONS when enabling mail on a realm. Setting this block does NOT retroactively
+    # fix `reset_password_allowed` / `verify_email` — see the note on those flags in realm.tf, and
+    # flip them only AFTER a real message has been observed captured and rendering correctly.
+    # `port` is a STRING in this provider, not a number. `from` and `host` are the only Required
+    # attributes; everything else is optional.
+    smtp_server = optional(object({
+      host                  = string
+      from                  = string
+      port                  = optional(string)
+      from_display_name     = optional(string)
+      reply_to              = optional(string)
+      reply_to_display_name = optional(string)
+      envelope_from         = optional(string)
+      # Both default false: the dev catcher listens in plaintext on 1025. A real relay will need
+      # exactly one of these true (587/STARTTLS or 465/SSL) — never both.
+      starttls   = optional(bool, false)
+      ssl        = optional(bool, false)
+      allow_utf8 = optional(bool, false)
+    }))
+
     roles = optional(list(string), [])
 
     clients = optional(list(object({
@@ -275,6 +323,31 @@ variable "realm" {
       length(try(var.realm.internationalization.supported_locales, [])) > 0
     )
     error_message = "realm.internationalization.supported_locales must contain at least one locale."
+  }
+
+  # starttls and ssl are mutually exclusive: STARTTLS upgrades a plaintext connection on the
+  # submission port, SSL wraps the connection from the first byte. Keycloak accepts both being
+  # true and then fails to send at runtime — a green apply with silently undelivered mail, which
+  # is the exact failure this whole ADR exists to stop being invisible.
+  validation {
+    condition = (
+      var.realm.smtp_server == null ||
+      !(try(var.realm.smtp_server.starttls, false) && try(var.realm.smtp_server.ssl, false))
+    )
+    error_message = "realm.smtp_server: starttls and ssl are mutually exclusive — set at most one."
+  }
+
+  # A catcher on 1025 is plaintext by design; anything else plaintext is a mistake worth blocking.
+  # This is a floor, not a guarantee: it stops the copy-paste case where a dev block is pointed at
+  # a real relay without turning encryption on.
+  validation {
+    condition = (
+      var.realm.smtp_server == null ||
+      try(var.realm.smtp_server.port, "25") == "1025" ||
+      try(var.realm.smtp_server.starttls, false) ||
+      try(var.realm.smtp_server.ssl, false)
+    )
+    error_message = "realm.smtp_server: a non-1025 port must set starttls or ssl — plaintext SMTP to a real relay leaks credentials and message bodies."
   }
 
   # default_locale outside supported_locales means the realm falls back to a language it has not
