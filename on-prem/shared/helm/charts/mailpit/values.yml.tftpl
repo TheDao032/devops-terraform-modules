@@ -135,12 +135,24 @@ spec:
             # works, and that is the path Keycloak takes (its realm smtp_server omits the auth
             # block entirely → the provider sends Auth=false).
             #
-            # These two flags exist for the OTHER client. notification-service is a Go SMTP
-            # client reading user/password from config; if either is ever non-empty it will
-            # attempt AUTH, and mailpit refuses AUTH on an unencrypted connection unless
-            # --smtp-auth-allow-insecure is set. accept-any then makes any credential (or none)
-            # succeed. Without BOTH, a config that merely LOOKS harmless — a leftover username
-            # in the dev overlay — turns into a send failure that reads like a mailpit outage.
+            # These two flags exist for the OTHER client: notification-service, a PYTHON
+            # service using aiosmtplib (not Go — an earlier revision of this comment said Go).
+            # It does not merely tolerate credentials, it REQUIRES them. Its SCRUM-454 guard in
+            # internal/infrastructure/services/email_service.py reads:
+            #
+            #     if not self.smtp_user or not self.smtp_password:
+            #         return False, None          # returns WITHOUT opening a socket
+            #
+            # pinned by test_absent_credentials_never_open_a_connection. That guard is correct —
+            # it is what stopped the service reporting sends it never made — so the catcher must
+            # bend, not the guard. Hence: dev config supplies dummy non-empty user/password, and
+            # these two flags make mailpit advertise AUTH on the plaintext listener and accept
+            # any pair. Without BOTH, correct-looking credentials are refused on an unencrypted
+            # connection and the failure reads like a mailpit outage.
+            #
+            # The dev overlay must also set use_tls:false — it is passed through as aiosmtplib's
+            # start_tls=, and port 1025 has no TLS, so a correct host + correct credentials still
+            # fail while it is true.
             #
             # This is safe here and ONLY here: the SMTP port is ClusterIP, unpublished, and the
             # catcher holds test mail by construction. It would be indefensible on anything
