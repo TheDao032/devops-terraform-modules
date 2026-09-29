@@ -40,7 +40,18 @@ resource "keycloak_realm_user_profile" "main" {
       edit = ["admin", "user"]
     }
 
-    validator { name = "length" }
+    # 🔴 CONFIG IS MANDATORY, NOT OPTIONAL. Keycloak's `length` validator rejects the whole
+    # PUT with error-validator-config-missing-value if min/max are absent — and it validates
+    # the ENTIRE document, so one bare validator fails every attribute at once. The values
+    # below are read back from the live realm, not chosen: username is min 3 / max 255, while
+    # email/firstName/lastName carry max only (no min).
+    validator {
+      name = "length"
+      config = {
+        min = "3"
+        max = "255"
+      }
+    }
     validator { name = "username-prohibited-characters" }
     validator { name = "up-username-not-idn-homograph" }
   }
@@ -56,7 +67,13 @@ resource "keycloak_realm_user_profile" "main" {
     }
 
     validator { name = "email" }
-    validator { name = "length" }
+    validator {
+      name = "length"
+      # max only — the live realm sets no minimum on email.
+      config = {
+        max = "255"
+      }
+    }
   }
 
   attribute {
@@ -69,7 +86,13 @@ resource "keycloak_realm_user_profile" "main" {
       edit = ["admin", "user"]
     }
 
-    validator { name = "length" }
+    validator {
+      name = "length"
+      # max only — matches the live realm.
+      config = {
+        max = "255"
+      }
+    }
     validator { name = "person-name-prohibited-characters" }
   }
 
@@ -83,7 +106,13 @@ resource "keycloak_realm_user_profile" "main" {
       edit = ["admin", "user"]
     }
 
-    validator { name = "length" }
+    validator {
+      name = "length"
+      # max only — matches the live realm.
+      config = {
+        max = "255"
+      }
+    }
     validator { name = "person-name-prohibited-characters" }
   }
 
