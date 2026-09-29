@@ -193,6 +193,27 @@ variable "realm" {
 
     roles = optional(list(string), [])
 
+    # ── Custom user-profile attributes (B-M01) ────────────────────────────────────────────────
+    # Keycloak 26 runs the DECLARATIVE USER PROFILE. With `unmanagedAttributePolicy` unset it
+    # SILENTLY DISCARDS undeclared attributes: the admin PUT returns 204 and the value is gone.
+    # An attribute a protocol mapper reads MUST be declared here or the mapper has nothing to
+    # copy and the claim is simply absent from every token.
+    #
+    # ⚠️ Setting this to a non-empty list makes terraform take ownership of the realm's ENTIRE
+    # user profile (Keycloak has no per-attribute API). The module reproduces the four built-ins
+    # verbatim so that ownership is not a data-loss event — see user-profile.tf.
+    user_profile_attributes = optional(list(object({
+      name         = string
+      display_name = optional(string)
+      # Roles allowed to VIEW / EDIT the attribute. Defaults are deliberate:
+      #   view: admin + user  — the owner may see their own value
+      #   edit: admin ONLY    — the owner may NOT change it
+      # An attribute that exists to replace a forgeable client-supplied value must not be
+      # writable by the client, or the forgery just moves.
+      view_roles = optional(list(string), ["admin", "user"])
+      edit_roles = optional(list(string), ["admin"])
+    })), [])
+
     clients = optional(list(object({
       client_id                       = string
       name                            = optional(string)
