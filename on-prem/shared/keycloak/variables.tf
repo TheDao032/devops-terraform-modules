@@ -208,6 +208,21 @@ variable "realm" {
       # Custom audiences added to this client's ACCESS token (e.g. "fitmate-backend"). Services that
       # validate `aud` require this — Keycloak's default aud is `account`, not your backend.
       audiences = optional(list(string), [])
+      # User-attribute claims added to this client's ACCESS token (B-M01).
+      #
+      # Each entry maps a Keycloak USER ATTRIBUTE onto a token claim, so a service can learn a
+      # caller-scoped fact from the signed token instead of trusting the request body. The
+      # motivating case: media-service stored identity documents under a `trainer_id` taken
+      # from a multipart form field, which any authenticated user could set to someone else's.
+      #
+      # ⚠️ A claim is only as trustworthy as the attribute behind it. The attribute MUST be
+      # written by a service using its own admin credentials, never by the user, or this just
+      # relocates the same forgery one layer down.
+      user_attribute_claims = optional(list(object({
+        user_attribute = string # Keycloak user attribute name
+        claim_name     = string # claim key in the token
+        claim_type     = optional(string, "String")
+      })), [])
       # Roles from the realm's built-in `realm-management` client, granted to THIS client's service
       # account — i.e. what it may do via the Keycloak ADMIN REST API. Requires
       # service_accounts_enabled = true (validated below).

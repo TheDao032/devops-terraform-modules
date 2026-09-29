@@ -14,6 +14,20 @@ locals {
     }
   ]...) : {}
 
+  # Flatten each client's user-attribute claims → one protocol-mapper per (client, claim).
+  # Same keying discipline as client_audiences: "<client_id>:<claim_name>" is stable across
+  # plans, so adding a claim to one client never re-creates another client's mapper.
+  client_attribute_claims = length(var.realm.clients) > 0 ? merge([
+    for c in var.realm.clients : {
+      for m in c.user_attribute_claims : "${c.client_id}:${m.claim_name}" => {
+        client_id      = c.client_id
+        user_attribute = m.user_attribute
+        claim_name     = m.claim_name
+        claim_type     = m.claim_type
+      }
+    }
+  ]...) : {}
+
   # Only users that actually have realm roles to assign.
   users_with_roles = { for u in var.realm.users : coalesce(u.key, u.username) => u if length(u.realm_roles) > 0 }
 
