@@ -8,10 +8,22 @@ variable "namespaces" {
   EOT
   type        = list(string)
 
-  validation {
-    condition     = length(var.namespaces) > 0
-    error_message = "namespaces must not be empty — an empty baseline silently protects nothing."
-  }
+  # 🔴 AN EMPTY LIST IS ALLOWED, DELIBERATELY.
+  #
+  # The original rule here rejected it, reasoning that "an empty baseline silently
+  # protects nothing". That is true as a steady state and wrong as a transition:
+  # when this baseline had to be ROLLED BACK after two production failures
+  # (2026-10-14), the only safe way to reconcile terraform state with the cluster
+  # was to apply an empty list so the tracked policies are DESTROYED.
+  #
+  # Rejecting empty forced the alternative — leaving the old namespace list in the
+  # unit — which means the next apply by anyone SILENTLY RECREATES THE OUTAGE while
+  # the repo still claims the baseline is enabled. A validation rule that makes
+  # rollback impossible is worse than no rule.
+  #
+  # The protection against a silently-empty baseline belongs in review, not here:
+  # the unit must carry a comment saying WHY it is parked. See
+  # on-prem/fitmate/{dev,stg}/netpol-baseline/terragrunt.hcl.
 
   validation {
     condition     = alltrue([for n in var.namespaces : can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", n))])
