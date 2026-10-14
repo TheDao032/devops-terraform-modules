@@ -10,9 +10,15 @@
 # Kafka, Vault, CoreDNS and the PVC in one apply. Egress restriction is its own
 # ticket with its own measurement — NOT smuggled in here.
 #
-# 🔴 THE TWO ALLOWS ARE NOT OPTIONAL. A bare default-deny is "secure" and also:
-#   - 504s every public route (traefik can no longer reach the pod), and
+# 🔴 THE ALLOWS ARE NOT OPTIONAL. A bare default-deny is "secure" and also:
+#   - 502s every public route (traefik can no longer reach the pod), and
 #   - blinds prometheus, which looks like a healthy quiet service.
+#
+# 🔴 AND THE INGRESS NAMESPACE IS NOT kube-system. My first version allowed only
+# kube-system and took web-dev, admin-dev and web-stg to 502 on 2026-10-14 while
+# every pod stayed 1/1 Running. kube-system holds only the svclb helper pods; the
+# Traefik proxy itself is in a namespace called "traefik". Both are allowed now.
+# See the variable docs in variables.tf for the measurement.
 # Both are included so this baseline is safe to apply to EVERY fitmate namespace.
 # Measured 2026-10-14: media-service has no ServiceMonitor and no HTTPRoute today,
 # so for THAT namespace both rules are defensive rather than load-bearing — but six
@@ -50,18 +56,20 @@ locals {
         policyTypes = ["Ingress"]
         ingress = [
           {
-            from = [{
-              namespaceSelector = {
-                matchLabels = { "kubernetes.io/metadata.name" = var.ingress_namespace }
-              }
-            }]
-          },
-          {
-            from = [{
-              namespaceSelector = {
-                matchLabels = { "kubernetes.io/metadata.name" = var.monitoring_namespace }
-              }
-            }]
+            # One rule, MULTIPLE from entries: a NetworkPolicy "from" list is an
+            # OR, so this allows any of the ingress namespaces plus monitoring.
+            from = concat(
+              [for ns in var.ingress_namespaces : {
+                namespaceSelector = {
+                  matchLabels = { "kubernetes.io/metadata.name" = ns }
+                }
+              }],
+              [{
+                namespaceSelector = {
+                  matchLabels = { "kubernetes.io/metadata.name" = var.monitoring_namespace }
+                }
+              }],
+            )
           },
         ]
       }
