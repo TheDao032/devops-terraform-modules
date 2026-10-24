@@ -69,7 +69,14 @@ jobs:
       # Full-coverage validation requires `terragrunt validate` in the environments
       # repo, where the generate blocks exist — that is IN-53 phase 2.
       - name: validate modules that resolve standalone
+        # 🪤 GitHub runs `run:` under `bash -e`, so the FIRST non-zero command
+        # aborts the step before the classifier below can run. `set +e` is
+        # REQUIRED here: this loop is built to inspect failures, not die on
+        # the first one. (My local dry-run passed precisely because an
+        # interactive bash has no -e — the workflow failed anyway.)
+        shell: bash {0}
         run: |
+          set +e
           set -uo pipefail
           FAILED=0; PASSED=0; SKIPPED=0
           DIRS=$(find . -name '*.tf' \
@@ -163,7 +170,14 @@ jobs:
       # So: run tflint PER MODULE and classify, exactly as the validate job does.
       # Measured baseline 2026-10-24: pass=34  skip=7  fail=0.
       - name: tflint (per module)
+        # 🪤 GitHub runs `run:` under `bash -e`, so the FIRST non-zero command
+        # aborts the step before the classifier below can run. `set +e` is
+        # REQUIRED here: this loop is built to inspect failures, not die on
+        # the first one. (My local dry-run passed precisely because an
+        # interactive bash has no -e — the workflow failed anyway.)
+        shell: bash {0}
         run: |
+          set +e
           set -uo pipefail
           tflint --init
           FAIL=0; PASS=0; SKIP=0
