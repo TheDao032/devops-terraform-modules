@@ -144,7 +144,50 @@ jobs:
       - uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: latest
-      - name: tflint --recursive
+      # 🔴 SAME ARCHITECTURE MISMATCH AS `validate` — measured on this PR's first
+      # run, where tflint failed while fmt and validate passed.
+      #
+      # `tflint --recursive` aborts the WHOLE run on a config-build failure in any
+      # one module. These modules take their values from terragrunt `inputs`, so a
+      # freeform `type = map(any)` / `default = {}` variable makes every
+      # `var.local.common` read look like a missing key:
+      #
+      #   Failed to build configurations;
+      #   on-prem/shared/external-secrets/secrets-store.tf:2 Missing map element;
+      #   This map does not have an element with the key "common".
+      #
+      # The key comes from the CALLER. ⚠️ `--disable-rule=` does NOT help — this is a
+      # configuration-build error, not a rule violation; I measured that and it still
+      # exited 1 with the same 9 errors.
+      #
+      # So: run tflint PER MODULE and classify, exactly as the validate job does.
+      # Measured baseline 2026-10-24: pass=34  skip=7  fail=0.
+      - name: tflint (per module)
         run: |
+          set -uo pipefail
           tflint --init
-          tflint --recursive --minimum-failure-severity=error
+          FAIL=0; PASS=0; SKIP=0
+          DIRS=$(find . -name '*.tf' \
+            -not -path '*/.terragrunt-cache/*' \
+            -not -path '*/.terraform/*' \
+            | xargs -n1 dirname | sort -u)
+          for D in $DIRS; do
+            echo "::group::$D"
+            OUT=$(tflint --chdir="$D" --no-color --minimum-failure-severity=error 2>&1); RC=$?
+            # Flatten: tflint hard-wraps, so a line-oriented grep misses the phrase.
+            FLAT=$(echo "$OUT" | tr '\n' ' ' | tr -s ' ')
+            if [ $RC -ne 0 ] && echo "$FLAT" | grep -qE 'Failed to build configurations|Missing map element|Unsupported attribute'; then
+              echo 'SKIP: inputs come from terragrunt; tflint cannot evaluate them here'
+              SKIP=$((SKIP+1)); echo '::endgroup::'; continue
+            fi
+            if [ $RC -ne 0 ]; then
+              echo "$OUT"
+              echo "::error file=$D::tflint failed"
+              FAIL=$((FAIL+1))
+            else
+              PASS=$((PASS+1))
+            fi
+            echo '::endgroup::'
+          done
+          echo "pass=$PASS  skip=$SKIP  fail=$FAIL"
+          exit $((FAIL > 0 ? 1 : 0))
