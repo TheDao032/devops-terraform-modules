@@ -1,0 +1,207 @@
+# PR validation for the terraform modules (IN-53).
+#
+# WHY THIS EXISTS: before 2026-10-24 this repo had NO .github/workflows at all, and
+# the sibling devops-terragrunt-environments had 9 workflows that were ALL
+# `workflow_dispatch` only. Four terragrunt PRs merged that day with ZERO checks
+# while fitmate-gitops PRs ran three. A reviewer reading HCL was the only gate.
+#
+# WHAT THIS DELIBERATELY DOES NOT DO: `terraform plan`. A plan needs real provider
+# credentials, and the cluster-touching modules target 192.168.105.10, which a
+# GitHub-hosted runner cannot reach. Plan is IN-53 Q1 and needs a decision on
+# self-hosted runners first. fmt + init + validate + tflint need no credentials and
+# catch the parse/lint/type class on every PR, today.
+name: terraform validate
+
+on:
+  pull_request:
+    branches: [local, main]
+  push:
+    branches: [local, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tf-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fmt:
+    name: terraform fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      # Baseline 2026-10-24: exactly ONE file failed (aws/oidc-providers/iam-role.tf),
+      # fixed in the same PR that added this workflow. If this job ever goes red on
+      # an unrelated PR, run `terraform fmt -recursive .` locally — do not disable it.
+      - name: terraform fmt -check -recursive
+        run: terraform fmt -check -recursive -diff .
+
+  validate:
+    name: init + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      # 🔴 WHY ONLY SOME MODULES ARE VALIDATED — measured 2026-10-24.
+      #
+      # `terraform validate` on a BARE module dir fails for 16 of 41 modules, and
+      # it is NOT a defect in them. This repo's modules deliberately do not declare
+      # `required_providers`: the sibling devops-terragrunt-environments injects it
+      # via `generate` blocks (on-prem/keycloak.hcl:37, on-prem/kube.hcl:27) because
+      # Terraform permits only ONE required_providers block and the wrapper owns it.
+      #
+      # Standalone init then GUESSES `hashicorp/<name>` and dies:
+      #   cloud/cloudflare-tunnel  -> needs cloudflare/cloudflare, guesses hashicorp/
+      #   on-prem/shared/keycloak  -> needs mrparkers/keycloak,   guesses hashicorp/
+      # Modules using genuinely-hashicorp providers (kubernetes, helm, aws) pass.
+      #
+      # So this job validates ONLY modules that resolve standalone, and REPORTS the
+      # rest as skipped rather than failing the PR on an architecture choice.
+      # Full-coverage validation requires `terragrunt validate` in the environments
+      # repo, where the generate blocks exist — that is IN-53 phase 2.
+      - name: validate modules that resolve standalone
+        # 🪤 GitHub runs `run:` under `bash -e`, so the FIRST non-zero command
+        # aborts the step before the classifier below can run. `set +e` is
+        # REQUIRED here: this loop is built to inspect failures, not die on
+        # the first one. (My local dry-run passed precisely because an
+        # interactive bash has no -e — the workflow failed anyway.)
+        shell: bash {0}
+        run: |
+          set +e
+          set -uo pipefail
+          FAILED=0; PASSED=0; SKIPPED=0
+          DIRS=$(find . -name '*.tf' \
+            -not -path '*/.terragrunt-cache/*' \
+            -not -path '*/.terraform/*' \
+            | xargs -n1 dirname | sort -u)
+          for D in $DIRS; do
+            echo "::group::$D"
+            INIT=$(terraform -chdir="$D" init -backend=false -no-color -input=false 2>&1) || true
+            # 🪤 Terraform HARD-WRAPS its error text at ~72 cols, so the phrase
+            #    "does not have a provider named" is split across two lines and a
+            #    line-oriented grep silently misses it. Flatten to one line first.
+            FLAT=$(echo "$INIT" | tr "\n" " " | tr -s " ")
+            # Classified against the REAL init output (measured 2026-10-24, not assumed).
+            # THREE causes are architecture, not defects, and are SKIPPED:
+            #  (a) provider injected by terragrunt generate, so standalone init
+            #      guesses hashicorp/<name>:
+            #        "does not have a provider named .../hashicorp/cloudflare"
+            #        "Did you intend to use cloudflare/cloudflare?"
+            #  (b) a .terraform.lock.hcl pinning a version this bare init cannot
+            #      satisfy: "locked provider ... does not match"
+            #  (c) a relative symlink to a sibling path that only exists in the
+            #      consuming repo: "Unable to evaluate directory symlink"
+            # Everything else IS a defect and fails the PR.
+            if echo "$FLAT" | grep -qE 'does not have a provider named|Did you intend to use|locked provider|Unable to evaluate directory symlink'; then
+              echo "SKIP: resolved by the terragrunt wrapper, not standalone"
+              SKIPPED=$((SKIPPED+1)); echo '::endgroup::'; continue
+            fi
+            if echo "$INIT" | grep -qi '^Error:'; then
+              echo "$INIT" | tail -20
+              echo "::error file=$D::terraform init failed"
+              FAILED=$((FAILED+1)); echo '::endgroup::'; continue
+            fi
+            if terraform -chdir="$D" validate -no-color; then
+              PASSED=$((PASSED+1))
+            else
+              echo "::error file=$D::terraform validate failed"
+              FAILED=$((FAILED+1))
+            fi
+            echo '::endgroup::'
+          done
+          echo "validated=$PASSED  skipped=$SKIPPED  failed=$FAILED"
+          # ── BASELINE 2026-10-24: validated=25  skipped=14  failed=2 ──────────
+          # The two failures are PRE-EXISTING defects in modules FITMate does not
+          # consume, found by this workflow on its first run:
+          #
+          #   aws/oidc-providers        iam-role.tf:121,206,248 use var.project_name
+          #                             which is NEVER declared (8 variables exist,
+          #                             project_name is not one of them).
+          #   .../traefik-dashboard     outputs.tf:4 reads local.traefik_gc_name;
+          #                             traefik.tf declares `gc_name`, not
+          #                             `traefik_gc_name`.
+          #
+          # They are REPORTED, not fixed here: both sit in AWS/bosch modules outside
+          # this change's scope, and fixing them blind risks breaking a consumer.
+          # Tracked in IN-53. Until they are fixed this job is INFORMATIONAL —
+          # flip ALLOW_KNOWN_FAILURES to 0 to make it a hard gate.
+          ALLOW_KNOWN_FAILURES=2
+          if [ "$FAILED" -gt "$ALLOW_KNOWN_FAILURES" ]; then
+            echo "::error::$FAILED module(s) failed — more than the $ALLOW_KNOWN_FAILURES known baseline failures. A NEW defect was introduced."
+            exit 1
+          fi
+          if [ "$FAILED" -lt "$ALLOW_KNOWN_FAILURES" ]; then
+            echo "::notice::$FAILED < $ALLOW_KNOWN_FAILURES known failures — a baseline defect was fixed. LOWER ALLOW_KNOWN_FAILURES to lock the improvement in."
+          fi
+          exit 0
+  tflint:
+    name: tflint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+      # 🔴 SAME ARCHITECTURE MISMATCH AS `validate` — measured on this PR's first
+      # run, where tflint failed while fmt and validate passed.
+      #
+      # `tflint --recursive` aborts the WHOLE run on a config-build failure in any
+      # one module. These modules take their values from terragrunt `inputs`, so a
+      # freeform `type = map(any)` / `default = {}` variable makes every
+      # `var.local.common` read look like a missing key:
+      #
+      #   Failed to build configurations;
+      #   on-prem/shared/external-secrets/secrets-store.tf:2 Missing map element;
+      #   This map does not have an element with the key "common".
+      #
+      # The key comes from the CALLER. ⚠️ `--disable-rule=` does NOT help — this is a
+      # configuration-build error, not a rule violation; I measured that and it still
+      # exited 1 with the same 9 errors.
+      #
+      # So: run tflint PER MODULE and classify, exactly as the validate job does.
+      # Measured baseline 2026-10-24: pass=34  skip=7  fail=0.
+      - name: tflint (per module)
+        # 🪤 GitHub runs `run:` under `bash -e`, so the FIRST non-zero command
+        # aborts the step before the classifier below can run. `set +e` is
+        # REQUIRED here: this loop is built to inspect failures, not die on
+        # the first one. (My local dry-run passed precisely because an
+        # interactive bash has no -e — the workflow failed anyway.)
+        shell: bash {0}
+        run: |
+          set +e
+          set -uo pipefail
+          tflint --init
+          FAIL=0; PASS=0; SKIP=0
+          DIRS=$(find . -name '*.tf' \
+            -not -path '*/.terragrunt-cache/*' \
+            -not -path '*/.terraform/*' \
+            | xargs -n1 dirname | sort -u)
+          for D in $DIRS; do
+            echo "::group::$D"
+            OUT=$(tflint --chdir="$D" --no-color --minimum-failure-severity=error 2>&1); RC=$?
+            # Flatten: tflint hard-wraps, so a line-oriented grep misses the phrase.
+            FLAT=$(echo "$OUT" | tr '\n' ' ' | tr -s ' ')
+            if [ $RC -ne 0 ] && echo "$FLAT" | grep -qE 'Failed to build configurations|Missing map element|Unsupported attribute'; then
+              echo 'SKIP: inputs come from terragrunt; tflint cannot evaluate them here'
+              SKIP=$((SKIP+1)); echo '::endgroup::'; continue
+            fi
+            if [ $RC -ne 0 ]; then
+              echo "$OUT"
+              echo "::error file=$D::tflint failed"
+              FAIL=$((FAIL+1))
+            else
+              PASS=$((PASS+1))
+            fi
+            echo '::endgroup::'
+          done
+          echo "pass=$PASS  skip=$SKIP  fail=$FAIL"
+          exit $((FAIL > 0 ? 1 : 0))
