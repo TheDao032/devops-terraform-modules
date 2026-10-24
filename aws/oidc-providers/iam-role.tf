@@ -129,7 +129,7 @@ resource "aws_iam_policy" "github_runner_policy" {
         Effect = "Allow"
         Action = [
           "ec2:RunInstances",
-          "ec2:TerminateInstances", 
+          "ec2:TerminateInstances",
           "ec2:DescribeInstances",
           "ec2:DescribeInstanceStatus"
         ]
