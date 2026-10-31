@@ -59,6 +59,19 @@ variable "realm" {
     # Self-service sign-up: renders the "Register" link and the registration form.
     # ⚠️ Pair with a plan for abuse: with registration ON and verify_email OFF, anyone may create
     # an account claiming ANY email address, unverified.
+    # ── Social-only flow: where a hint-less sign-in goes (B-FLOW-DEADEND) ───────────────────────
+    #
+    # Alias of the identity provider that `identity-provider-redirector` falls back to when the
+    # request carries no `kc_idp_hint` — e.g. "google".
+    #
+    # 🔴 NULL IS A DEAD END, NOT A DEFAULT. A social-only flow has no form-rendering execution, so
+    # a hint-less arrival with no defaultProvider ends in a bare "Sign-in failed" page. Measured
+    # live on fitmate-dev 2026-10-31. If any client sets social_only_login = true, set this too.
+    #
+    # ⚠️ Must name an identity provider that actually EXISTS on the realm. Pointing it at one that
+    # was skipped for a missing secret reproduces the same dead end with a different cause.
+    social_only_default_idp = optional(string)
+
     registration_allowed = optional(bool, false)
 
     # Make the email address BE the username: the registration form drops its username field and
