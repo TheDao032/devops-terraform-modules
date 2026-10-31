@@ -20,6 +20,22 @@ resource "keycloak_openid_client" "main" {
 
   # PKCE (S256) for public/BFF auth-code flows. Null → Keycloak default (unset).
   pkce_code_challenge_method = each.value.pkce_code_challenge_method
+
+  # ADR-118 step 3 part 2 — bind ONLY the opted-in client to the social-only browser flow.
+  #
+  # `dynamic` with a 0/1 list, not a ternary: the override is a BLOCK, and a block cannot be
+  # conditionally omitted any other way. Clients that did not opt in emit no block at all, which
+  # is what leaves them on Keycloak's built-in `browser` flow.
+  #
+  # 🔴 Only `browser_id` is set. `direct_grant_id` is deliberately left alone: fitmate-e2e-test
+  # and admin-cli authenticate by direct grant, and overriding that path would break the E2E
+  # suite while removing nothing from any login page.
+  dynamic "authentication_flow_binding_overrides" {
+    for_each = try(each.value.social_only_login, false) ? [1] : []
+    content {
+      browser_id = keycloak_authentication_flow.social_only_browser[0].id
+    }
+  }
 }
 
 # Audience mapper — injects a custom audience (e.g. "fitmate-backend") into the client's ACCESS
