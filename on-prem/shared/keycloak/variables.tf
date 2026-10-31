@@ -226,6 +226,26 @@ variable "realm" {
       valid_post_logout_redirect_uris = optional(list(string), [])
       web_origins                     = optional(list(string), [])
       pkce_code_challenge_method      = optional(string) # "S256" (recommended) or null
+
+      # ── Social-only browser flow (ADR-118 step 3 part 2) ──────────────────────────────────────
+      #
+      # When true, this client is bound to a generated browser flow that offers ONLY identity
+      # providers — no username/password form. Everything else in the realm keeps Keycloak's
+      # built-in `browser` flow.
+      #
+      # 🔴 DEFAULT false ON PURPOSE. This module is consumed by fitmate dev, stg AND prod. A
+      # default of true would change the login page of every environment on its next apply,
+      # including one nobody reviewed in a prod context.
+      #
+      # 🔴 NEVER SET THIS ON AN ADMIN CLIENT. Measured on fitmate-dev 2026-10-31: the realm has
+      # 20 users, 18 of them password-only fixtures, and `fitmate-admin-bff` is the only door
+      # every administrator uses. Binding that client to a social-only flow locks them out with
+      # no recovery path, because reset_password_allowed is false and no mail relay exists yet
+      # (IN-61).
+      #
+      # Clients using DIRECT GRANT (direct_access_grants_enabled = true, e.g. fitmate-e2e-test,
+      # admin-cli) are unaffected either way — the browser flow is never consulted for them.
+      social_only_login = optional(bool, false)
       # Custom audiences added to this client's ACCESS token (e.g. "fitmate-backend"). Services that
       # validate `aud` require this — Keycloak's default aud is `account`, not your backend.
       audiences = optional(list(string), [])
