@@ -85,3 +85,34 @@ resource "keycloak_authentication_execution" "social_only_idp_redirector" {
   # a user who already has a valid session.
   depends_on = [keycloak_authentication_execution.social_only_cookie]
 }
+
+# ── The hint-less arrival (B-FLOW-DEADEND, measured 2026-10-31) ─────────────────────────────────
+#
+# 🔴 WHY THIS BLOCK EXISTS. The flow above shipped without it and BROKE the login page.
+#
+# `identity-provider-redirector` only redirects when the request carries `kc_idp_hint`, or when
+# this config gives it a `defaultProvider`. With neither it falls through — and because the flow
+# deliberately omits the built-in `forms` subflow, there is NOTHING LEFT TO RENDER A PAGE.
+# Keycloak ends the flow and the user sees a bare "Sign-in failed".
+#
+# Measured on dev before this block:
+#   'Continue with Google'  (kc_idp_hint=google) -> /trainee, real profile id   WORKED
+#   'Sign in with FITMate'  (no hint)            -> "Sign-in failed"            BROKE
+#
+# 🔑 The password form and the thing that DRAWS the login page were the same subflow. Removing
+# `forms` to delete the password box also deleted the renderer. That is not a Keycloak quirk —
+# it is what a flow with no form-rendering execution means.
+#
+# With a defaultProvider set, a hint-less arrival (a bookmark, a direct /auth link, an expired
+# session resuming) goes straight to that identity provider instead of dead-ending.
+resource "keycloak_authentication_execution_config" "social_only_default_idp" {
+  count = local.social_only_flow_enabled && var.realm.social_only_default_idp != null ? 1 : 0
+
+  realm_id     = keycloak_realm.main.id
+  execution_id = keycloak_authentication_execution.social_only_idp_redirector[0].id
+  alias        = "fitmate-social-only-default-idp"
+
+  config = {
+    defaultProvider = var.realm.social_only_default_idp
+  }
+}
