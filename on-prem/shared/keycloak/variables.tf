@@ -488,11 +488,18 @@ variable "realm" {
   # Only google/facebook have first-class resources in identity-providers.tf. A typo'd alias would
   # otherwise be silently dropped by the for_each filters and produce NO IdP with no error at all —
   # the exact "green apply that did nothing" failure this codebase keeps hitting.
+  # 🔴 THIS WHITELIST AND identity-providers.tf ARE TWO SEPARATE EDITS.
+  # Adding `apple` (2026-11-03) added the resource and missed this list. The apply failed with
+  # "alias must be one of: google, facebook" — correctly and loudly, but only AFTER the Keycloak
+  # image rollout had already succeeded, so a half-applied change looked like a working one. The
+  # guard did its job; the omission was the author's. When adding a provider, grep this file for
+  # EVERY validation block touching identity_providers (there are four) instead of the first one
+  # you happen to find.
   validation {
     condition = alltrue([
-      for i in var.realm.identity_providers : contains(["google", "facebook"], i.alias)
+      for i in var.realm.identity_providers : contains(["google", "facebook", "apple"], i.alias)
     ])
-    error_message = "realm.identity_providers[].alias must be one of: google, facebook (add a resource in identity-providers.tf to support more)."
+    error_message = "realm.identity_providers[].alias must be one of: google, facebook, apple (add a resource in identity-providers.tf AND add the alias to this whitelist \u2014 they are two separate edits)."
   }
 
   validation {
