@@ -335,7 +335,7 @@ variable "realm" {
     # skipping is the safe default and matches `get_env("GOOGLE_CLIENTSECRET", "")`. Which entries
     # were configured vs skipped is exposed in outputs so the skip is never silent.
     identity_providers = optional(list(object({
-      alias         = string # "google" | "facebook" — selects the resource type
+      alias         = string # "google" | "facebook" | "apple" — selects the resource type
       client_id     = string
       client_secret = string
       enabled       = optional(bool, true)
@@ -359,8 +359,40 @@ variable "realm" {
       first_broker_login_flow_alias = optional(string)
       hide_on_login_page            = optional(bool, false)
       default_scopes                = optional(string) # google: "openid profile email"
+
+      # ── Apple only (alias == "apple") ───────────────────────────────────────────────────────
+      #
+      # Keycloak ships NO Apple identity provider. Apple is served by the community extension
+      # baked into our custom image (fitmate-website keycloak-theme/Dockerfile, pinned 1.17.0),
+      # which registers provider_id "apple". Measured on our own server before that extension:
+      # 17 provider types offered, `apple` absent.
+      #
+      # 🔴 client_secret FOR APPLE IS THE RAW .p8 PRIVATE KEY, NOT A SECRET STRING.
+      #
+      # Apple requires the client secret to be an ES256 JWT signed with that key and re-minted
+      # before it expires. Hand-minting it produced a token expiring 2027-05-03 whose failure is
+      # UNDETECTABLE out of band — a valid secret, a garbage string, and a correctly-signed
+      # secret with the WRONG team_id all return byte-identical {"error":"invalid_grant"} from
+      # Apple, because Apple validates the grant before the client. The extension signs a fresh
+      # JWT per login from the .p8, which removes the expiry as a failure mode instead of
+      # requiring a monitor that cannot be written.
+      #
+      # team_id and key_id identify which Apple key signed it. Both are REQUIRED when
+      # alias == "apple" and are rejected by the validation block below if absent.
+      team_id = optional(string)
+      key_id  = optional(string)
     })), [])
   })
+
+  # Apple without team_id/key_id is accepted by Keycloak and FAILS ONLY AT LOGIN, with the
+  # indistinguishable invalid_grant described above — so catch it at plan time instead.
+  validation {
+    condition = alltrue([
+      for i in coalesce(var.realm.identity_providers, []) :
+      (i.alias != "apple") || (try(trimspace(i.team_id), "") != "" && try(trimspace(i.key_id), "") != "")
+    ])
+    error_message = "identity_providers: alias \"apple\" requires both team_id and key_id (Apple's client secret is a JWT signed with the .p8 and identified by these)."
+  }
 
   validation {
     condition     = contains(["none", "external", "all"], var.realm.ssl_required)
