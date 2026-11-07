@@ -9,10 +9,24 @@
 # cloudflare-tunnel/main.tf:106 — the v4 `cloudflare_record` / `value` spelling does not exist
 # in the provider this repo pins.
 
+locals {
+  # 🔴 ONE key expression, used by BOTH the for_each below AND the uniqueness validation in
+  # variables.tf. They were different once: for_each keyed on name|type while the validation
+  # keyed on name|type|content. The validation passed and guarded nothing, and the first real
+  # plan died on `Duplicate object key "@|TXT"` — an apex zone legitimately carries several TXT
+  # records (here: the Brevo ownership code AND the SPF record).
+  #
+  # A VALIDATION THAT CHECKS A DIFFERENT UNIQUENESS THAN THE CODE RELIES ON IS WORSE THAN NONE:
+  # it reports success about a proposition nobody cares about.
+  #
+  # sha1 of content, not the content itself, keeps keys short and readable in plan output.
+  record_keys = { for r in var.records : "${r.name}|${r.type}|${substr(sha1(r.content), 0, 8)}" => r }
+}
+
 resource "cloudflare_dns_record" "this" {
-  # Keyed by name+type rather than index: an index key makes removing the first record
-  # re-create every record after it, which for DKIM means a window where mail fails auth.
-  for_each = { for r in var.records : "${r.name}|${r.type}" => r }
+  # Keyed by name+type+content-hash rather than index: an index key makes removing the first
+  # record re-create every record after it, which for DKIM means a window where mail fails auth.
+  for_each = local.record_keys
 
   zone_id = var.zone_id
   name    = each.value.name

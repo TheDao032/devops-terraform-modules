@@ -34,10 +34,17 @@ variable "records" {
     error_message = "records[].proxied may only be true for A, AAAA or CNAME records."
   }
 
-  # Two records of the same name+type collide in the for_each key and one would vanish
-  # silently. Catch it at plan time rather than losing a record.
+  # Two records producing the same key collide in for_each and one vanishes silently.
+  #
+  # 🔴 THIS EXPRESSION MUST STAY IDENTICAL TO local.record_keys IN main.tf. They diverged
+  # once — the validation included content, for_each did not — so the validation PASSED
+  # while the first real plan died on `Duplicate object key "@|TXT"`. An apex zone
+  # legitimately carries several TXT records (the Brevo ownership code AND SPF).
+  # A validation that checks a different uniqueness than the code relies on is worse than
+  # none: it reports success about a proposition nobody cares about.
+  # If you change one, change both.
   validation {
-    condition     = length(var.records) == length(distinct([for r in var.records : "${r.name}|${r.type}|${substr(r.content, 0, 40)}"]))
-    error_message = "records[] contains duplicate name+type+content entries."
+    condition     = length(var.records) == length(distinct([for r in var.records : "${r.name}|${r.type}|${substr(sha1(r.content), 0, 8)}"]))
+    error_message = "records[] contains two entries with the same name, type AND content."
   }
 }
