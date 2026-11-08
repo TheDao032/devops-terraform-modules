@@ -92,9 +92,28 @@ locals {
   #
   # This value is only ever used as a membership test (see the `contains` below), so a set is both
   # the correct type and immune to duplicates.
+  # 🔴 ONLY ADDRESS RECORDS CAN CLAIM A HOSTNAME. Filtering on name alone was wrong and was
+  # actively destructive: on 2026-11-08 two TXT records (Brevo SPF + the domain-ownership code)
+  # were published at the apex for IN-61, and this module immediately planned
+  #
+  #     cloudflare_dns_record.hostname["fitmate.me"] will be destroyed
+  #     Plan: 0 to add, 0 to change, 1 to destroy
+  #
+  # with NOTHING created to replace it — i.e. applying would have taken the production apex off
+  # the tunnel, and kept doing so on every future apply.
+  #
+  # A CNAME and a TXT at the same name DO NOT CONFLICT. They are separate RRsets and DNS allows
+  # both; only an A, AAAA or CNAME at that name actually collides with the tunnel CNAME (and
+  # CNAME-vs-anything is the real exclusivity rule). The comment above already named SPF/DKIM as
+  # the reason a name carries several records — the map-key crash was fixed then, but the
+  # SEMANTIC error survived: "a record with this name exists" is not "this hostname is taken".
+  #
+  # Keeping the cfargotunnel.com test as well, so the module still never excludes its OWN
+  # records (which would flap on re-apply).
   externally_claimed = toset([
     for r in data.cloudflare_dns_records.existing.result :
-    r.name if !endswith(try(r.content, ""), ".cfargotunnel.com")
+    r.name if contains(["A", "AAAA", "CNAME"], try(r.type, "")) &&
+    !endswith(try(r.content, ""), ".cfargotunnel.com")
   ])
 }
 
